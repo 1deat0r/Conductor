@@ -1,6 +1,6 @@
 # Contributing to Conductor
 
-Conductor is developed locally first. For ordinary changes, work in the current checkout, run the canonical verification command, review the diff and make a focused commit. Do not create an Issue, branch, worktree or PR just to satisfy process. The complete policy and exceptions are in [docs/development-workflow.md](docs/development-workflow.md).
+Conductor is developed autonomously and locally first. For ordinary changes, work in the current checkout, run the canonical verification command, review the diff, make a focused commit and synchronize it without routine user approval. Do not create an Issue, branch, worktree or PR just to satisfy process. The complete policy and exceptions are in [docs/development-workflow.md](docs/development-workflow.md).
 
 ## Verify before committing
 
@@ -12,8 +12,8 @@ This is the canonical pre-commit check. It validates the spec structure, TypeScr
 
 ## GitHub and review
 
-Issues and PRs are optional unless durable tracking, coordination, material review or protected-branch integration makes them useful. The active main ruleset currently requires remote changes to arrive through a PR with required cross-platform checks and an eligible non-author approval. Never push directly to protected main, self-approve or bypass a gate. Check the live ruleset if its requirements may have changed.
+Issues and PRs are optional unless durable tracking, coordination, material review or remote verification makes them useful. The active main ruleset requires successful Ubuntu, Windows and macOS checks, linear history, no deletion and no force push; it does not require a PR or review. A direct fast-forward push is allowed only for the exact commit with successful required checks. Check the live ruleset if its requirements may have changed, and never bypass it.
 
-Use independent human review in proportion to risk. Changes to authority, trust boundaries, privacy, durability, credentials, platform lifecycle, release controls or execution isolation need focused specialist review and relevant adversarial/platform evidence before the affected capability is enabled or released. AI reviews can find issues but do not establish human approval or security qualification.
+Use independent security-informed review in proportion to risk. Changes to authority, trust boundaries, privacy, durability, credentials, platform lifecycle, release controls or execution isolation need focused specialist review and relevant adversarial/platform evidence before the affected capability is enabled or released. AI reviews can find issues but do not establish human approval or security qualification. If a genuine human-only or release gate blocks one capability, record it and continue other safe work.
 
 Preserve user work, keep commits atomic and evidence accurate. Do not introduce production credentials, private third-party code, fake success or unapproved releases.

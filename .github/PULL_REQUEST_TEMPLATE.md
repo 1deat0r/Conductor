@@ -24,4 +24,4 @@ Commands/results and any untested platforms or release gates:
 
 ## Integration
 
-For changes targeting protected main, satisfy the live ruleset: required CI, an eligible non-author approval of the latest reviewable push, resolved conversations and the allowed merge method. Do not self-approve or bypass. Record the final commit/head SHA when describing review evidence.
+For changes targeting protected main, satisfy the live ruleset's required checks and history rules. PRs and human approvals are optional unless the live policy or a genuine product security/release gate requires them. Never bypass protections or fabricate review evidence. Record the final commit/head SHA when describing verification evidence.

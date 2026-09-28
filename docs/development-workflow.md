@@ -1,50 +1,52 @@
-# Local-first development workflow
+# Autonomous, local-first development
 
-Conductor is primarily developed by autonomous coding agents. The fast path is local and commit-centered:
+Conductor is developed by autonomous coding agents. For ordinary repository work, the agent owns the task from inspection through verified commit and synchronization; do not make the user supervise routine choices or repeat a skill's interactive checkpoints.
 
-    task/context → inspect repository → implement → pnpm verify → review diff → atomic commit
+The normal loop is:
 
-GitHub provides source backup, synchronization, useful long-lived tracking, remote clean-environment checks and release infrastructure. It is not the default inner loop.
+    task/context → inspect → implement → pnpm verify → review diff → atomic commit → synchronize
 
-## Default loop
+GitHub provides backup, synchronization, cross-platform clean-environment checks, useful long-lived tracking and release infrastructure. It is not the primary development loop.
 
-1. Inspect the current checkout and git status; preserve user and agent changes. Read the relevant product requirements, contracts, code and ADRs for the task.
-2. Implement in the current checkout. Use a short-lived branch/worktree when work must be isolated, when agents need separate ownership, or when preparing an integration PR. Do not create a branch solely for ceremony.
-3. Run pnpm verify from the repository root before committing. Add targeted checks during development and platform qualification when relevant. If a required check cannot run, record the exact command and limitation; do not claim a passing result.
-4. Inspect the complete diff for scope, accidental files, secrets, generated artifacts and debug code. Make a small, coherent commit that leaves the repository in a valid state. Avoid unrelated edits and avoid rewriting other work.
-5. Continue with the next task from the verified local state. Use a durable GitHub Issue only when ongoing backlog, cross-session context, dependencies, external reports or coordination make it valuable. Local task/context files are fine when they are more efficient.
+## Autonomous execution
 
-Do not add the entire test suite to Git hooks. Keep hooks, if introduced, fast. pnpm verify is the primary quality gate for agents and contributors.
+- Read git status first and preserve all existing user/agent work. Read the relevant SPEC sections, contracts, implementation gates and decisions; do not reread unrelated material.
+- Resolve routine ambiguity with the safest reversible choice. Record a short assumption in the task notes or commit when useful, then continue. Ask the user only when a missing decision materially changes product behavior and no safe, reversible default exists, or when an action needs authority the user has not granted.
+- Use Matt Pocock skills as tools, not as a reason to pause. Their default instructions to ask, wait for direction, get confirmation, or create Issues/PRs are overridden for Conductor by this policy. Infer ordinary decisions from the request and repository, perform all locally possible steps, and keep going. Do not invoke an interactive skill when its purpose is only to collect approval for work that can safely proceed.
+- If a skill encounters a true human-only step (for example, unavailable credentials, an account-owner decision, an irreversible external effect, or required independent release review), isolate that step. Complete unrelated safe work, record the precise blocker, and leave only the affected action or capability pending.
+- Make routine reversible repository changes, run commands, use focused local notes, commit, push and integrate without asking for another confirmation. Do not send third-party messages, create public announcements, provision paid resources, use production credentials, publish, deploy, submit to app stores, or delete user data unless the task explicitly authorizes that action.
 
-## Verification
+## Implementation and verification
 
-pnpm verify is the one canonical local verification command. It runs spec-structure validation, TypeScript type checks, package tests and builds, Rust formatting, Clippy with warnings denied, and Rust workspace tests using the committed lockfiles. It is intended to be deterministic and local after dependencies are installed with pnpm install --frozen-lockfile and the pinned Rust toolchain.
+1. Work in the current checkout for ordinary changes. Use a branch/worktree when isolation, parallel ownership, risk, or remote check staging makes it useful; do not branch just for ceremony.
+2. Implement the smallest coherent change that satisfies the task and the normative product contract. Do not invent success, reduce security, or make unsupported S0 execution available.
+3. Run `pnpm verify` from the repository root before committing. Add targeted checks during development and relevant platform qualification when needed. If a required check cannot run, record the command and limitation; never claim it passed.
+4. Review the complete diff for scope, accidental/generated files, secrets, debug output, and unrelated work. Fix issues attributable to the change, then create a small, descriptive atomic commit that leaves the repository valid.
+5. Continue useful independent work while remote checks run. Do not wait idle for CI unless its result is needed for the next integration action.
 
-The repo currently has no separate expensive FULL suite. Use pnpm check:mobile, the mobile bundle export, or pnpm smoke:desktop when the affected surface needs those checks. Desktop smoke needs a display or Xvfb and must keep Electron's sandbox enabled. pnpm verify and source CI do not qualify native device behavior, process isolation, hosted recovery or production security; use the relevant implementation-plan gates and record limitations.
+`pnpm verify` is the one canonical local verification command. It runs spec-structure validation, TypeScript checks, package tests/builds, Rust formatting, Clippy with warnings denied, and Rust workspace tests using committed lockfiles. Use `pnpm check:mobile`, mobile bundle export, or `pnpm smoke:desktop` when the affected surface needs them. Desktop smoke requires a display or Xvfb and Electron sandbox support. Source checks do not qualify native device behavior, process isolation, hosted recovery, or production security.
 
-## Issues, branches, PRs and CI
+## Issues, branches, pull requests and CI
 
-These are tools to use when they materially improve coordination, review, auditability or release confidence:
+- **Issues are optional.** Use one for durable backlog, multi-session context, dependencies, external reports, major features, or coordination. A task that can be completed and committed now needs no Issue.
+- **Branches/worktrees are optional.** Use them for isolation, concurrent work, risk review, or staging an exact commit for remote checks. Do not create disposable branches only to satisfy convention.
+- **Pull requests are optional.** Use a PR when remote review, public contribution, concurrent work, or a complicated integration materially helps. If used, the agent may prepare, update, and merge it once the applicable evidence and rules are satisfied; do not wait for routine user approval.
+- **CI is an independent safety net.** Keep the clean-checkout Ubuntu, Windows and macOS verification jobs plus valuable Linux mobile and desktop checks. Local verification is the inner-loop gate; CI results are required before protected-main integration because the live ruleset requires the three OS checks.
 
-- **Issues:** optional. Use for persistent backlog, multi-session work, dependencies, external reports, major features or coordination. Small work that can be implemented and verified promptly does not need one.
-- **Branches/worktrees:** optional for local work. Use for concurrency, isolation, risky changes, independent review or a protected-branch PR. Work in separate checkouts when concurrent agents would otherwise share mutable files.
-- **Pull requests:** optional by default. Use for meaningful remote review, substantial/risky changes, public contributions or whenever protected main requires them. A PR should explain behavior, risk, validation and limitations; do not open throwaway PRs just to make chat progress visible.
-- **CI:** an independent safety net, not the primary development loop. Run local verification first. Keep clean-checkout, OS-specific, packaging, security and release checks that add coverage local runs cannot provide. Agents may continue independent work while remote CI runs; wait for results before integration only when those results gate it.
+### Main integration
 
-### Current protected-main rules
+The active repository ruleset requires successful Ubuntu, Windows and macOS checks, linear history, no branch deletion, and no non-fast-forward updates. It has no required PR, review, or bypass rule. Direct fast-forward pushes to `main` are allowed only when the exact commit has the required successful statuses. Check the live ruleset before changing this description.
 
-The live repository ruleset currently requires a PR to update main, an eligible non-author GitHub approval of the latest reviewable push, resolved review conversations, up-to-date required checks on Ubuntu, Windows and macOS, linear history and squash merge. Deletion, force push and bypass are disabled. These rules govern remote integration; they do not require an Issue or PR for every local task. Do not bypass or change live protections as part of routine work. If the owner explicitly changes them, update this paragraph and .github/main-ruleset.json to match the verified live configuration.
+For an ordinary change, commit locally after `pnpm verify`. If the exact commit already has required green statuses, fast-forward `main` and push it. Otherwise push the same commit on a temporary integration branch so CI can evaluate that SHA; continue independent work while it runs, then fast-forward that exact checked commit to `main` when green. If main advanced in the meantime, rebase or replay the change, rerun local verification, and obtain checks for the new commit. Never bypass the ruleset, force-push, delete protected refs, fabricate a status/review, or wait for a human PR approval that the live policy does not require.
 
-For code intended to reach protected main, open a PR when that is the legitimate integration path, satisfy the live ruleset, and report any unavailable eligible reviewer honestly. Never fabricate a human review or treat same-account agents as separate GitHub approvers. A local commit is valid progress but is not a remote merge.
+The no-PR path is normal, not mandatory: choose a PR when it provides real review or coordination value. Required CI is retained because it adds clean-environment and cross-platform evidence that local checks cannot provide.
 
-## Review by risk
+## Review, product security and release
 
-All substantive changes receive an author/agent diff review and the appropriate local verification. Add independent review when the change's risk warrants it; use a focused specialist, not a fixed three-role quota for every change. Require an independent, security-informed human review before enabling or releasing changes to authority, trust boundaries, credentials, privacy, execution isolation, command acknowledgement/recovery, platform lifecycle or release controls. If such review or required evidence is unavailable, keep the capability disabled or the release blocked.
+Review every substantive diff and verify it locally. Scale additional review to the risk; do not impose a fixed number of reviewers on routine work. AI reviewers may analyze independently when available, but never claim that agents sharing an account are distinct GitHub reviewers or that AI review is human security qualification.
 
-AI review is useful for finding defects, but it is not independent human approval and cannot establish production security. Preserve reviewer findings as written; do not rewrite another reviewer's verdict. Do not use an AI review result as a substitute for a required GitHub approval.
+Keep the SPEC's independent security-informed review and evidence gates before enabling or releasing authority, trust-boundary, privacy, credential, execution-isolation, durable-acknowledgement/recovery, platform-lifecycle, or release-control capabilities. Those gates protect users and are not routine maintainer checkpoints. If qualified review or required evidence is unavailable, keep the affected capability disabled or release blocked, document the specific missing gate, and continue safe work elsewhere. The S0 scaffold cannot execute agents, authorize tools, enroll devices, store credentials, or mutate repositories.
 
-## Product and release safety
+Do not weaken authority, privacy, durable acknowledgement, or execution isolation to make checks pass. Keep CI actions pinned and permissions minimal; PR jobs receive no release secrets. Publication, signing, deployment, and store submission remain behind their explicit release gates and task authorization.
 
-SPEC.md and contracts/ define product behavior. Do not weaken authority, privacy, durable acknowledgement or execution isolation to make checks pass. Keep unsupported S0 execution unavailable until the relevant SPEC requirements and release gates pass. Do not equate source typechecking with five-platform qualification. CI actions remain pinned, permissions minimal, PR jobs receive no release secrets, and publication/signing/store submission stay behind their explicit release gates.
-
-The initial three-role spec review and exact-scope approval records document the 2026-09-28 bootstrap. They are historical evidence, not a recurring check for routine development. Review policy and active GitHub integration gates are documented here and in the live ruleset.
+The initial exact-scope specification reviews are historical bootstrap evidence, not a recurring gate for routine work. Preserve historical reviewer records as written. Governance prose does not prove reviewer independence or qualify product security.

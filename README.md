@@ -14,7 +14,7 @@ Run the canonical verification command before committing:
 
     pnpm verify
 
-Use task-specific checks while iterating. pnpm smoke:desktop needs a working display or Xvfb and Electron sandbox support; do not disable the sandbox. pnpm check:mobile checks Expo dependency alignment. CI also exports the mobile bundle and runs desktop smoke on Linux. See [the workflow](docs/development-workflow.md) for when Issues, branches, PRs and CI add value and for current protected-main requirements.
+Use task-specific checks while iterating. pnpm smoke:desktop needs a working display or Xvfb and Electron sandbox support; do not disable the sandbox. pnpm check:mobile checks Expo dependency alignment. CI also exports the mobile bundle and runs desktop smoke on Linux. See [the autonomous workflow](docs/development-workflow.md) and [Conductor's Matt Pocock skill adapter](docs/agents/autonomy.md) for agent operation and main integration rules.
 
     pnpm dev:desktop
     pnpm dev:api
@@ -43,4 +43,4 @@ Desktop dev builds the renderer and opens Electron; there is no privileged remot
 
 The initial specification was unanimously reviewed before the public source repository was created. That review is preserved as historical bootstrap evidence; it is not a recurring gate for routine development. Packages remain private/unlicensed; no package publication, deployment, store submission or distribution identity is part of this scaffold. See LICENSE-NOTICE.md before publication. CI provides clean-checkout source checks on three desktop OS families, but only actual evidence constitutes a passing run.
 
-See [local validation evidence](docs/evidence/scaffold-validation.md) for actual commands, results and untested platform gates. Remote integration with protected main must follow the active GitHub ruleset; routine local work follows the local-first workflow.
+See [local validation evidence](docs/evidence/scaffold-validation.md) for actual commands, results and untested platform gates. Direct main integration requires successful checks for the exact commit under the active GitHub ruleset; routine work does not need a PR or human approval.
