@@ -6,15 +6,17 @@ use rusqlite::{
 use sha2::{Digest, Sha256};
 
 const DATABASE_VERSION: i64 = 2;
+const JOURNAL_ENVELOPE_VERSION: u8 = 1;
 const MAX_IDENTIFIER_BYTES: usize = 256;
 const MAX_COMMAND_PAYLOAD_BYTES: usize = 1_048_576;
 const MAX_OUTBOX_BATCH_SIZE: usize = 256;
 
-/// Immutable command data accepted by the local host journal.
+/// Immutable command data received by the local host journal.
 ///
 /// `payload_json` is stored byte-for-byte. Its digest also covers every field
 /// below, so reusing a command ID with a changed target, actor, revision,
-/// deadline, schema version, or payload is rejected.
+/// deadline, journal envelope version, or payload is rejected. This storage
+/// envelope version is not a normative Conductor command schema.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CommandEnvelope {
     pub schema_version: u8,
@@ -38,6 +40,7 @@ pub enum CommandState {
 }
 
 impl CommandState {
+    #[cfg(test)]
     fn as_str(self) -> &'static str {
         match self {
             Self::PendingHostAdmission => "pending_host_admission",
@@ -65,6 +68,7 @@ pub enum HostRejection {
 }
 
 impl HostRejection {
+    #[cfg(test)]
     fn as_str(self) -> &'static str {
         match self {
             Self::Expired => "expired",
@@ -246,11 +250,13 @@ impl CommandJournal {
         Ok(receipt)
     }
 
-    /// Durably record the host's admission decision. `current_task_revision`
-    /// must come from the sole authoritative task writer, and the caller must
-    /// serialize this call with that writer's task-state updates. No public S0
-    /// entrypoint invokes this method yet.
-    pub fn record_host_admission(
+    /// Persist an admission decision after typed command-schema validation
+    /// exists. This transition is test-only until that R06 schema boundary is
+    /// implemented; a production build cannot emit `host_accepted` from an
+    /// arbitrary JSON payload. `current_task_revision` must come from the sole
+    /// authoritative task writer, serialized with its state updates.
+    #[cfg(test)]
+    fn record_host_admission(
         &self,
         command_id: &str,
         current_task_revision: i64,
@@ -560,8 +566,10 @@ fn migrate(connection: &mut Connection) -> Result<(), JournalError> {
 }
 
 fn validate_command(command: &CommandEnvelope) -> Result<(), JournalError> {
-    if command.schema_version == 0 {
-        return Err(JournalError::InvalidInput("unsupported schema version"));
+    if command.schema_version != JOURNAL_ENVELOPE_VERSION {
+        return Err(JournalError::InvalidInput(
+            "unsupported journal envelope version",
+        ));
     }
     for (name, value) in [
         ("command ID", command.command_id.as_str()),
@@ -900,6 +908,19 @@ mod tests {
             journal.store_host_command(&changed, 500),
             Err(JournalError::PayloadMismatch)
         ));
+    }
+
+    #[test]
+    fn rejects_unknown_journal_envelope_versions_before_persistence() {
+        let database = TempDatabase::new();
+        let journal = CommandJournal::open(database.path()).expect("open journal");
+        let mut unsupported = command("unsupported", 0, 1_000);
+        unsupported.schema_version = u8::MAX;
+        assert!(matches!(
+            journal.store_host_command(&unsupported, 500),
+            Err(JournalError::InvalidInput(_))
+        ));
+        assert!(journal.query("unsupported").expect("query").is_none());
     }
 
     #[test]
