@@ -5,7 +5,7 @@ use rusqlite::{
 };
 use sha2::{Digest, Sha256};
 
-const DATABASE_VERSION: i64 = 2;
+const DATABASE_VERSION: i64 = 3;
 const JOURNAL_ENVELOPE_VERSION: u8 = 1;
 const MAX_IDENTIFIER_BYTES: usize = 256;
 const MAX_COMMAND_PAYLOAD_BYTES: usize = 1_048_576;
@@ -37,6 +37,9 @@ pub enum CommandState {
     HostAccepted,
     HostRejected,
     EffectResolved,
+    /// A legacy host acceptance has no durable effect receipt. It cannot be
+    /// treated as pending admission or replayed automatically.
+    OutcomeUnknown,
 }
 
 impl CommandState {
@@ -47,6 +50,7 @@ impl CommandState {
             Self::HostAccepted => "host_accepted",
             Self::HostRejected => "host_rejected",
             Self::EffectResolved => "effect_resolved",
+            Self::OutcomeUnknown => "outcome_unknown",
         }
     }
 
@@ -56,6 +60,7 @@ impl CommandState {
             "host_accepted" => Ok(Self::HostAccepted),
             "host_rejected" => Ok(Self::HostRejected),
             "effect_resolved" => Ok(Self::EffectResolved),
+            "outcome_unknown" => Ok(Self::OutcomeUnknown),
             _ => Err(JournalError::CorruptState(value.to_owned())),
         }
     }
@@ -192,9 +197,10 @@ impl CommandJournal {
 
     /// Commit a command to the local host inbox before returning a receipt.
     /// This is not a `coordinator_stored` acknowledgement: only the
-    /// coordinator can emit that receipt. The caller must deliver the
-    /// coordinator's stored command to this inbox, then call
-    /// `record_host_admission` before emitting `host_accepted`.
+    /// coordinator can emit that receipt. Production admission is unavailable
+    /// until a typed R06 command schema is implemented. Legacy acceptances
+    /// without effect receipts migrate to `outcome_unknown` and are not
+    /// eligible for replay.
     ///
     /// A replay with the same immutable command returns its prior state, even
     /// when the original deadline has since passed. Expired commands are
@@ -478,7 +484,8 @@ fn migrate(connection: &mut Connection) -> Result<(), JournalError> {
                     deadline_unix_ms INTEGER NOT NULL CHECK(deadline_unix_ms >= 0),
                     payload_json BLOB NOT NULL,
                     state TEXT NOT NULL CHECK(state IN (
-                        'pending_host_admission', 'host_accepted', 'host_rejected', 'effect_resolved'
+                        'pending_host_admission', 'host_accepted', 'host_rejected', 'effect_resolved',
+                        'outcome_unknown'
                     )),
                     rejection TEXT CHECK(rejection IN ('expired', 'stale_revision') OR rejection IS NULL),
                     effect_digest BLOB CHECK(effect_digest IS NULL OR length(effect_digest) = 32),
@@ -495,7 +502,7 @@ fn migrate(connection: &mut Connection) -> Result<(), JournalError> {
                     delivered_at_ms INTEGER CHECK(delivered_at_ms IS NULL OR delivered_at_ms >= 0),
                     UNIQUE(command_id, event_type)
                 );
-                PRAGMA user_version = 2;",
+                PRAGMA user_version = 3;",
             )?;
             transaction.commit()?;
             Ok(())
@@ -520,7 +527,8 @@ fn migrate(connection: &mut Connection) -> Result<(), JournalError> {
                     deadline_unix_ms INTEGER NOT NULL CHECK(deadline_unix_ms >= 0),
                     payload_json BLOB NOT NULL,
                     state TEXT NOT NULL CHECK(state IN (
-                        'pending_host_admission', 'host_accepted', 'host_rejected', 'effect_resolved'
+                        'pending_host_admission', 'host_accepted', 'host_rejected', 'effect_resolved',
+                        'outcome_unknown'
                     )),
                     rejection TEXT CHECK(rejection IN ('expired', 'stale_revision') OR rejection IS NULL),
                     effect_digest BLOB CHECK(effect_digest IS NULL OR length(effect_digest) = 32),
@@ -546,7 +554,7 @@ fn migrate(connection: &mut Connection) -> Result<(), JournalError> {
                     payload_json,
                     CASE state
                         WHEN 'coordinator_stored' THEN 'pending_host_admission'
-                        WHEN 'host_accepted' THEN 'pending_host_admission'
+                        WHEN 'host_accepted' THEN 'outcome_unknown'
                         ELSE state
                     END,
                     rejection, effect_digest, state_updated_at_ms
@@ -560,7 +568,73 @@ fn migrate(connection: &mut Connection) -> Result<(), JournalError> {
                 WHERE event_type NOT IN ('coordinator_stored', 'host_accepted');
                 DROP TABLE local_command_outbox_v1;
                 DROP TABLE local_commands_v1;
-                PRAGMA user_version = 2;",
+                PRAGMA user_version = 3;",
+            )?;
+            transaction.commit()?;
+            Ok(())
+        }
+        2 => {
+            let transaction =
+                connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            transaction.execute_batch(
+                "ALTER TABLE local_command_outbox RENAME TO local_command_outbox_v2;
+                ALTER TABLE local_commands RENAME TO local_commands_v2;
+                DROP INDEX local_commands_by_task;
+                CREATE TABLE local_commands (
+                    command_id TEXT PRIMARY KEY NOT NULL,
+                    payload_digest BLOB NOT NULL CHECK(length(payload_digest) = 32),
+                    schema_version INTEGER NOT NULL CHECK(schema_version BETWEEN 1 AND 255),
+                    tenant_id TEXT NOT NULL,
+                    task_id TEXT NOT NULL,
+                    attempt_id TEXT NOT NULL,
+                    expected_revision INTEGER NOT NULL CHECK(expected_revision >= 0),
+                    actor_id TEXT NOT NULL,
+                    device_id TEXT NOT NULL,
+                    deadline_unix_ms INTEGER NOT NULL CHECK(deadline_unix_ms >= 0),
+                    payload_json BLOB NOT NULL,
+                    state TEXT NOT NULL CHECK(state IN (
+                        'pending_host_admission', 'host_accepted', 'host_rejected',
+                        'effect_resolved', 'outcome_unknown'
+                    )),
+                    rejection TEXT CHECK(rejection IN ('expired', 'stale_revision') OR rejection IS NULL),
+                    effect_digest BLOB CHECK(effect_digest IS NULL OR length(effect_digest) = 32),
+                    state_updated_at_ms INTEGER NOT NULL CHECK(state_updated_at_ms >= 0)
+                );
+                CREATE INDEX local_commands_by_task ON local_commands(task_id, state);
+                CREATE TABLE local_command_outbox (
+                    event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    command_id TEXT NOT NULL REFERENCES local_commands(command_id),
+                    aggregate_id TEXT NOT NULL,
+                    schema_version INTEGER NOT NULL CHECK(schema_version BETWEEN 1 AND 255),
+                    event_type TEXT NOT NULL,
+                    occurred_at_ms INTEGER NOT NULL CHECK(occurred_at_ms >= 0),
+                    delivered_at_ms INTEGER CHECK(delivered_at_ms IS NULL OR delivered_at_ms >= 0),
+                    UNIQUE(command_id, event_type)
+                );
+                INSERT INTO local_commands (
+                    command_id, payload_digest, schema_version, tenant_id, task_id,
+                    attempt_id, expected_revision, actor_id, device_id, deadline_unix_ms,
+                    payload_json, state, rejection, effect_digest, state_updated_at_ms
+                ) SELECT command_id, payload_digest, schema_version, tenant_id, task_id,
+                    attempt_id, expected_revision, actor_id, device_id, deadline_unix_ms,
+                    payload_json,
+                    CASE state
+                        WHEN 'pending_host_admission' THEN 'outcome_unknown'
+                        WHEN 'host_accepted' THEN 'outcome_unknown'
+                        ELSE state
+                    END,
+                    rejection, effect_digest, state_updated_at_ms
+                FROM local_commands_v2;
+                INSERT INTO local_command_outbox (
+                    event_id, command_id, aggregate_id, schema_version, event_type,
+                    occurred_at_ms, delivered_at_ms
+                ) SELECT event_id, command_id, aggregate_id, schema_version, event_type,
+                    occurred_at_ms, delivered_at_ms
+                FROM local_command_outbox_v2
+                WHERE event_type NOT IN ('coordinator_stored', 'host_accepted');
+                DROP TABLE local_command_outbox_v2;
+                DROP TABLE local_commands_v2;
+                PRAGMA user_version = 3;",
             )?;
             transaction.commit()?;
             Ok(())
@@ -818,6 +892,44 @@ mod tests {
             .expect("insert legacy outbox event");
     }
 
+    fn create_v2_schema(connection: &Connection) {
+        connection
+            .execute_batch(
+                "CREATE TABLE local_commands (
+                    command_id TEXT PRIMARY KEY NOT NULL,
+                    payload_digest BLOB NOT NULL CHECK(length(payload_digest) = 32),
+                    schema_version INTEGER NOT NULL CHECK(schema_version BETWEEN 1 AND 255),
+                    tenant_id TEXT NOT NULL,
+                    task_id TEXT NOT NULL,
+                    attempt_id TEXT NOT NULL,
+                    expected_revision INTEGER NOT NULL CHECK(expected_revision >= 0),
+                    actor_id TEXT NOT NULL,
+                    device_id TEXT NOT NULL,
+                    deadline_unix_ms INTEGER NOT NULL CHECK(deadline_unix_ms >= 0),
+                    payload_json BLOB NOT NULL,
+                    state TEXT NOT NULL CHECK(state IN (
+                        'pending_host_admission', 'host_accepted', 'host_rejected', 'effect_resolved'
+                    )),
+                    rejection TEXT CHECK(rejection IN ('expired', 'stale_revision') OR rejection IS NULL),
+                    effect_digest BLOB CHECK(effect_digest IS NULL OR length(effect_digest) = 32),
+                    state_updated_at_ms INTEGER NOT NULL CHECK(state_updated_at_ms >= 0)
+                );
+                CREATE INDEX local_commands_by_task ON local_commands(task_id, state);
+                CREATE TABLE local_command_outbox (
+                    event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    command_id TEXT NOT NULL REFERENCES local_commands(command_id),
+                    aggregate_id TEXT NOT NULL,
+                    schema_version INTEGER NOT NULL CHECK(schema_version BETWEEN 1 AND 255),
+                    event_type TEXT NOT NULL,
+                    occurred_at_ms INTEGER NOT NULL CHECK(occurred_at_ms >= 0),
+                    delivered_at_ms INTEGER CHECK(delivered_at_ms IS NULL OR delivered_at_ms >= 0),
+                    UNIQUE(command_id, event_type)
+                );
+                PRAGMA user_version = 2;",
+            )
+            .expect("create v2 schema");
+    }
+
     #[test]
     fn enables_wal_full_synchronous_and_foreign_keys() {
         let database = TempDatabase::new();
@@ -910,7 +1022,14 @@ mod tests {
             .expect("migrated accepted command");
         assert_eq!(
             pending_from_unsupported_acceptance.state,
-            CommandState::PendingHostAdmission
+            CommandState::OutcomeUnknown
+        );
+        assert_eq!(
+            journal
+                .record_host_admission("legacy-accepted", 4, 600)
+                .expect("do not re-admit an unresolved legacy acceptance")
+                .state,
+            CommandState::OutcomeUnknown
         );
         let terminal = journal
             .query("legacy-resolved")
@@ -922,6 +1041,63 @@ mod tests {
         let events = journal.pending_outbox_events(32).expect("migrated outbox");
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].command_id, "legacy-resolved");
+        assert_eq!(events[0].event_type, "effect_resolved");
+    }
+
+    #[test]
+    fn migration_quarantines_ambiguous_v2_states_before_replay() {
+        let database = TempDatabase::new();
+        let mut ambiguous_pending = command("v2-pending", 4, 1_000);
+        ambiguous_pending.schema_version = u8::MAX;
+        let mut accepted = command("v2-accepted", 4, 1_000);
+        accepted.schema_version = u8::MAX;
+        let mut resolved = command("v2-resolved", 4, 1_000);
+        resolved.schema_version = u8::MAX;
+        let effect_digest = Sha256::digest(b"v2 effect receipt");
+        let legacy = Connection::open(database.path()).expect("create v2 journal");
+        create_v2_schema(&legacy);
+        insert_v1_command(&legacy, &ambiguous_pending, "pending_host_admission", None);
+        insert_v1_command(&legacy, &accepted, "host_accepted", None);
+        insert_v1_command(
+            &legacy,
+            &resolved,
+            "effect_resolved",
+            Some(effect_digest.as_slice()),
+        );
+        insert_v1_outbox_event(&legacy, &ambiguous_pending, "host_accepted");
+        insert_v1_outbox_event(&legacy, &accepted, "host_accepted");
+        insert_v1_outbox_event(&legacy, &resolved, "effect_resolved");
+        drop(legacy);
+
+        let journal = CommandJournal::open(database.path()).expect("migrate v2 journal");
+        for id in ["v2-pending", "v2-accepted"] {
+            assert_eq!(
+                journal
+                    .query(id)
+                    .expect("query quarantined v2 row")
+                    .expect("migrated v2 row")
+                    .state,
+                CommandState::OutcomeUnknown
+            );
+            assert_eq!(
+                journal
+                    .record_host_admission(id, 4, 600)
+                    .expect("do not re-admit ambiguous v2 row")
+                    .state,
+                CommandState::OutcomeUnknown
+            );
+        }
+        let terminal = journal
+            .query("v2-resolved")
+            .expect("query migrated resolution")
+            .expect("migrated resolution");
+        assert_eq!(terminal.state, CommandState::EffectResolved);
+        assert_eq!(terminal.effect_digest, Some(hex(effect_digest.as_slice())));
+        let events = journal
+            .pending_outbox_events(32)
+            .expect("migrated v2 outbox");
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].command_id, "v2-resolved");
         assert_eq!(events[0].event_type, "effect_resolved");
     }
 
