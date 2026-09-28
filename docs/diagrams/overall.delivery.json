@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/home/its1deat0r/Documents/Codex/2026-09-28/ho-3/outputs/overall.architecture.json",
+  "output": "/home/its1deat0r/Documents/Codex/2026-09-28/ho-3/outputs/overall.html",
+  "specification": {
+    "sha256": "5646758cda8ce8bcd68949d30a592d7a980a078e72716efc815e7fd89d9c9a55",
+    "bytes": 4936
+  },
+  "artifact": {
+    "sha256": "bfa3b6263d01db56b049beb67ca87bc2eafb11915e96d95420a21862e25e6dd9",
+    "bytes": 811391
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

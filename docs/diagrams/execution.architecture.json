@@ -1,0 +1,225 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Execution: intent to a verified change",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1280,
+      700
+    ]
+  },
+  "components": [
+    {
+      "id": "durable-intent",
+      "type": "messagebus",
+      "label": "Durable command",
+      "sublabel": "ID \u00b7 deadline \u00b7 revision",
+      "pos": [
+        40,
+        300
+      ],
+      "size": [
+        210,
+        80
+      ]
+    },
+    {
+      "id": "attempt-owner",
+      "type": "backend",
+      "label": "Attempt owner",
+      "sublabel": "Scheduler \u00b7 epoch \u00b7 budget",
+      "pos": [
+        360,
+        300
+      ],
+      "size": [
+        210,
+        80
+      ]
+    },
+    {
+      "id": "capability-broker",
+      "type": "security",
+      "label": "Action broker",
+      "sublabel": "Policy \u00b7 digest \u00b7 permission",
+      "pos": [
+        680,
+        300
+      ],
+      "size": [
+        210,
+        80
+      ]
+    },
+    {
+      "id": "sandbox-workspace",
+      "type": "backend",
+      "label": "Private workspace",
+      "sublabel": "Agent \u00b7 tools \u00b7 environment",
+      "pos": [
+        1000,
+        300
+      ],
+      "size": [
+        210,
+        80
+      ]
+    },
+    {
+      "id": "recovery-journal",
+      "type": "database",
+      "label": "Host journal",
+      "sublabel": "Inbox \u00b7 state \u00b7 outbox",
+      "pos": [
+        360,
+        70
+      ],
+      "size": [
+        210,
+        80
+      ]
+    },
+    {
+      "id": "approval-record",
+      "type": "security",
+      "label": "Fresh approval",
+      "sublabel": "Exact action \u00b7 expiry",
+      "pos": [
+        680,
+        70
+      ],
+      "size": [
+        210,
+        80
+      ]
+    },
+    {
+      "id": "provider-request",
+      "type": "external",
+      "label": "External effect",
+      "sublabel": "Scoped API \u00b7 reconciliation",
+      "pos": [
+        680,
+        550
+      ],
+      "size": [
+        210,
+        80
+      ]
+    },
+    {
+      "id": "candidate-proof",
+      "type": "backend",
+      "label": "Candidate evidence",
+      "sublabel": "Commit \u00b7 platform \u00b7 checks",
+      "pos": [
+        1000,
+        70
+      ],
+      "size": [
+        210,
+        80
+      ]
+    },
+    {
+      "id": "review-package",
+      "type": "database",
+      "label": "Change package",
+      "sublabel": "Patch \u00b7 results \u00b7 provenance",
+      "pos": [
+        1000,
+        550
+      ],
+      "size": [
+        210,
+        80
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "deduplicated-accept",
+      "from": "durable-intent",
+      "to": "attempt-owner",
+      "label": "Deduplicate",
+      "variant": "emphasis"
+    },
+    {
+      "id": "request-action",
+      "from": "attempt-owner",
+      "to": "capability-broker",
+      "label": "Action intent",
+      "variant": "emphasis"
+    },
+    {
+      "id": "authorize-work",
+      "from": "capability-broker",
+      "to": "sandbox-workspace",
+      "label": "Scoped run",
+      "variant": "emphasis"
+    },
+    {
+      "id": "commit-transition",
+      "from": "attempt-owner",
+      "to": "recovery-journal",
+      "label": "Commit state"
+    },
+    {
+      "id": "check-approval",
+      "from": "approval-record",
+      "to": "capability-broker",
+      "label": "Revalidate",
+      "variant": "security",
+      "labelDy": 94
+    },
+    {
+      "id": "perform-effect",
+      "from": "capability-broker",
+      "to": "provider-request",
+      "label": "Fenced effect",
+      "variant": "security",
+      "labelDy": 94
+    },
+    {
+      "id": "verify-result",
+      "from": "sandbox-workspace",
+      "to": "candidate-proof",
+      "label": "Run checks"
+    },
+    {
+      "id": "capture-result",
+      "from": "sandbox-workspace",
+      "to": "review-package",
+      "label": "Checkpoint",
+      "labelDy": 94
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Recovery",
+      "items": [
+        "Delivery is at least once; commands are deduplicated.",
+        "An ambiguous external effect is reconciled before retry."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Enforcement",
+      "items": [
+        "The diagram shows the managed execution path.",
+        "Opaque CLI agents have only declared sandbox controls."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Completion",
+      "items": [
+        "An agent finishing a turn does not prove task success.",
+        "Merging needs fresh checks on the integrated commit."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+$ pnpm --filter @conductor/desktop smoke
+$ pnpm build && electron . --smoke-test
+$ vite build
+vite v8.3.1 building client environment for production...
+transforming...
+✓ 16 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.57 kB │ gzip:  0.36 kB
+dist/assets/index-AF8CXLrx.css    2.06 kB │ gzip:  0.91 kB
+dist/assets/index-CIHzC9HH.js   193.89 kB │ gzip: 61.27 kB
+
+✓ built in 79ms
+[1478419:0928/195052.915283:ERROR:ui/ozone/platform/wayland/gpu/wayland_surface_factory.cc:249] '--ozone-platform=wayland' is not compatible with Vulkan. Consider switching to '--ozone-platform=x11' or disabling Vulkan
+{"desktop_smoke":"passed","sandbox":true,"node_integration":false}

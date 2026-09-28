@@ -1,0 +1,33 @@
+{
+  "evidenceKind": "image-capable-review",
+  "artifacts": [
+    {
+      "artifact": {
+        "sha256": "bfa3b6263d01db56b049beb67ca87bc2eafb11915e96d95420a21862e25e6dd9",
+        "bytes": 811391
+      },
+      "diagram": "overall",
+      "visual_review": "passed",
+      "scope": [
+        "1440x900 dark screenshot",
+        "2048x1320 light screenshot"
+      ],
+      "correction_rounds": 0,
+      "observations": "Both themes examined across the two endpoint sizes; clear routes, contained text/cards, balanced largest composition. All four viewport measurements are in the independent automated receipt."
+    },
+    {
+      "artifact": {
+        "sha256": "2f8df485bd1cc8ac439fe0883276c1949ac06d3786324094d97d1b3e4d757bc0",
+        "bytes": 809432
+      },
+      "diagram": "execution",
+      "visual_review": "passed",
+      "scope": [
+        "1440x900 dark screenshot",
+        "2048x1320 light screenshot"
+      ],
+      "correction_rounds": 0,
+      "observations": "Both themes examined across the two endpoint sizes; clear routes, contained text/cards, balanced largest composition. All four viewport measurements are in the independent automated receipt."
+    }
+  ]
+}

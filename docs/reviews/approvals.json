@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "spec_sha256": "46bd998630729de759eecb2e7b10ceca6ab482220c52b5122d4ce98b43ae1b01",
+  "reviews": {
+    "systems": "docs/reviews/round-3-systems.json",
+    "security": "docs/reviews/round-3-security.json",
+    "platforms": "docs/reviews/round-3-platforms.json"
+  },
+  "approved_at_utc": "2026-09-28T07:06:10.976040+00:00",
+  "meaning": "Independent model-agent specification approval for implementation readiness; not a production or human security audit"
+}

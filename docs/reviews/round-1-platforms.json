@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "role": "platforms",
+  "reviewer": "independent platform agent /root/platform_review",
+  "round": 1,
+  "spec_sha256": "a6297a772d4e0f0f23e1bf7d9703b96d4057d2557a4fed0961c2f9f5f4cc8d29",
+  "verdict": "REQUEST_CHANGES",
+  "blocking_findings": [
+    {
+      "id": "PLAT-001",
+      "requirement": "R15, R10-R11, ADR06",
+      "title": "Unqualified workload isolation guarantees contradict trusted native execution",
+      "failure_case": "S1 trusted native code runs with the logged-in OS account's authority and may reach same-user files, sockets and ambient credentials. R15 unconditionally forbids those accesses and requires external network enforcement, while R11 and the threat model acknowledge the weaker trusted profile. The normative text therefore requires an unplanned isolation boundary or an unenforceable claim before S1 execution.",
+      "resolution": "Apply the resource-denial and external enforcement guarantees explicitly to qualified restricted-local and isolated-managed profiles. Explicitly disclose trusted-host ambient OS-account authority and exclude that mode from those guarantees, preserving no-silent-downgrade and no-strong-failover-with-direct-credentials requirements. Align supporting threat/gate prose as necessary."
+    }
+  ],
+  "nonblocking_notes": [
+    {
+      "id": "PLAT-N01",
+      "requirement": "SPEC section 10 S0 acceptance",
+      "title": "Local aggregate verification omits Rust format and Clippy checks",
+      "failure_case": "A contributor can obtain a passing pnpm verify despite Rust format or Clippy regressions because those checks only appear separately in CI. Both separate checks passed during this review.",
+      "resolution": "Include cargo fmt and clippy in the root aggregate or document the additional mandatory local commands alongside pnpm verify. This is not a blocker to implementation readiness."
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@conductor/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json",
+    "dev": "pnpm build && electron .",
+    "smoke": "pnpm build && electron . --smoke-test"
+  },
+  "dependencies": {
+    "@conductor/domain": "workspace:*",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "electron": "44.4.5",
+    "vite": "8.3.1"
+  }
+}

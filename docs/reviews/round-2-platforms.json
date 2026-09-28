@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "role": "platforms",
+  "reviewer": "independent platform agent /root/platform_review",
+  "round": 2,
+  "spec_sha256": "bc423cc2df0c3cf2ee1c663d8a47bbfd9ade3374630d16ef085648f5b4b8c598",
+  "verdict": "REQUEST_CHANGES",
+  "blocking_findings": [
+    {
+      "id": "PLAT-002",
+      "requirement": "R25 and docs/development-workflow.md Action commit-SHA pinning",
+      "title": "pnpm/action-setup reference is an annotated-tag object rather than a commit",
+      "failure_case": "The workflow references f40ffcd9367d9f12939873eb1018b921a783ffaa. Independent git ls-remote verification resolves that as refs/tags/v4 and b906affcce14559ad1aafd4ab0e942779e9f58b1 as its peeled commit, so the normative workflow does not satisfy the explicit commit-SHA rule.",
+      "resolution": "Replace the reference with the verified peeled commit SHA and obtain fresh reviews on the updated scope hash before bootstrap."
+    }
+  ],
+  "nonblocking_notes": [
+    {
+      "id": "PLAT-N02",
+      "requirement": "R03 and R25 required Linux desktop smoke",
+      "title": "Configure the CI sandbox prerequisite without disabling sandboxing",
+      "failure_case": "Xvfb does not supply Chromium sandbox prerequisites, and Ubuntu user-namespace policy may differ from the local machine where smoke passed.",
+      "resolution": "On the disposable GitHub-hosted Linux VM, install the pinned Electron binary, resolve and verify its bundled chrome-sandbox, set only that helper root-owned mode 4755, and run Electron as the ordinary runner user. Do not disable sandboxing or change global AppArmor/sysctl policy; qualify installed packages separately."
+    }
+  ]
+}

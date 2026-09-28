@@ -1,0 +1,52 @@
+name: Verify scaffold
+on: [push, pull_request]
+permissions:
+  contents: read
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source:
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0 (peeled commit)
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:spec
+      - run: pnpm check:approvals
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo test --workspace --locked
+      - run: pnpm check:mobile
+        if: runner.os == 'Linux'
+      - run: pnpm --filter @conductor/mobile export
+        if: runner.os == 'Linux'
+      - name: Prepare Chromium sandbox on disposable hosted Linux runner
+        if: runner.os == 'Linux'
+        working-directory: apps/desktop
+        shell: bash
+        run: |
+          pnpm exec install-electron
+          conductor_sandbox="$(node -e "const path=require('node:path'); process.stdout.write(path.join(path.dirname(require('electron')),'chrome-sandbox'));")"
+          test -f "$conductor_sandbox"
+          test ! -L "$conductor_sandbox"
+          sudo chown root:root -- "$conductor_sandbox"
+          sudo chmod 4755 -- "$conductor_sandbox"
+      - run: xvfb-run -a pnpm smoke:desktop
+        if: runner.os == 'Linux'
+        env:
+          ELECTRON_OZONE_PLATFORM_HINT: x11

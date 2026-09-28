@@ -1,0 +1,247 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Successor: clients, coordination and execution",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1380,
+      700
+    ]
+  },
+  "components": [
+    {
+      "id": "mobile-web",
+      "type": "frontend",
+      "label": "Mobile + web",
+      "sublabel": "iPhone \u00b7 Android \u00b7 browser",
+      "pos": [
+        40,
+        300
+      ],
+      "size": [
+        230,
+        80
+      ]
+    },
+    {
+      "id": "coordination",
+      "type": "backend",
+      "label": "Coordination service",
+      "sublabel": "Identity \u00b7 tasks \u00b7 dispatch",
+      "pos": [
+        390,
+        300
+      ],
+      "size": [
+        230,
+        80
+      ]
+    },
+    {
+      "id": "host-runtime",
+      "type": "backend",
+      "label": "Rust host daemon",
+      "sublabel": "Local PC or remote runner",
+      "pos": [
+        740,
+        300
+      ],
+      "size": [
+        230,
+        80
+      ]
+    },
+    {
+      "id": "isolated-executor",
+      "type": "security",
+      "label": "Execution boundary",
+      "sublabel": "Agent \u00b7 tools \u00b7 worktree",
+      "pos": [
+        1090,
+        300
+      ],
+      "size": [
+        230,
+        80
+      ]
+    },
+    {
+      "id": "desktop-client",
+      "type": "frontend",
+      "label": "Desktop workbench",
+      "sublabel": "Linux \u00b7 Windows \u00b7 macOS",
+      "pos": [
+        740,
+        60
+      ],
+      "size": [
+        230,
+        80
+      ]
+    },
+    {
+      "id": "device-identity",
+      "type": "security",
+      "label": "Device + user identity",
+      "sublabel": "Enrollment \u00b7 scoped access",
+      "pos": [
+        390,
+        60
+      ],
+      "size": [
+        230,
+        80
+      ]
+    },
+    {
+      "id": "coordination-data",
+      "type": "database",
+      "label": "Cloud persistence",
+      "sublabel": "Postgres \u00b7 object storage",
+      "pos": [
+        390,
+        540
+      ],
+      "size": [
+        230,
+        80
+      ]
+    },
+    {
+      "id": "host-data",
+      "type": "database",
+      "label": "Host persistence",
+      "sublabel": "SQLite \u00b7 Git \u00b7 local blobs",
+      "pos": [
+        740,
+        540
+      ],
+      "size": [
+        230,
+        80
+      ]
+    },
+    {
+      "id": "external-services",
+      "type": "external",
+      "label": "Providers + services",
+      "sublabel": "Models \u00b7 MCP \u00b7 forge APIs",
+      "pos": [
+        1090,
+        540
+      ],
+      "size": [
+        230,
+        80
+      ]
+    },
+    {
+      "id": "change-evidence",
+      "type": "backend",
+      "label": "Review + validation",
+      "sublabel": "Patch \u00b7 checks \u00b7 provenance",
+      "pos": [
+        1090,
+        60
+      ],
+      "size": [
+        230,
+        80
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "client-command",
+      "from": "mobile-web",
+      "to": "coordination",
+      "label": "HTTPS",
+      "variant": "emphasis"
+    },
+    {
+      "id": "dispatch",
+      "from": "coordination",
+      "to": "host-runtime",
+      "label": "Command log",
+      "variant": "emphasis"
+    },
+    {
+      "id": "authorized-execution",
+      "from": "host-runtime",
+      "to": "isolated-executor",
+      "label": "Scoped grant",
+      "variant": "emphasis"
+    },
+    {
+      "id": "local-session",
+      "from": "desktop-client",
+      "to": "host-runtime",
+      "label": "Local IPC",
+      "labelDy": 94
+    },
+    {
+      "id": "authz",
+      "from": "device-identity",
+      "to": "coordination",
+      "label": "Authorize",
+      "variant": "security",
+      "labelDy": 94
+    },
+    {
+      "id": "control-transaction",
+      "from": "coordination",
+      "to": "coordination-data",
+      "label": "Transactions",
+      "labelDy": 94
+    },
+    {
+      "id": "host-journal",
+      "from": "host-runtime",
+      "to": "host-data",
+      "label": "Journal",
+      "labelDy": 94
+    },
+    {
+      "id": "egress",
+      "from": "isolated-executor",
+      "to": "external-services",
+      "label": "Brokered I/O",
+      "variant": "security",
+      "labelDy": 94
+    },
+    {
+      "id": "attestation",
+      "from": "isolated-executor",
+      "to": "change-evidence",
+      "label": "Collect results"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Local operation",
+      "items": [
+        "The desktop uses its host without a cloud account.",
+        "Closing the window does not end a running task."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Remote operation",
+      "items": [
+        "Hosts initiate the authenticated outbound connection.",
+        "Phone approval requires a fresh action digest."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Trust boundary",
+      "items": [
+        "A Git worktree is not a process sandbox.",
+        "An unmanaged CLI exposes only coarse permissions."
+      ]
+    }
+  ]
+}

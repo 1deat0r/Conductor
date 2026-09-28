@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "Conductor",
+    "slug": "conductor",
+    "version": "0.1.0",
+    "orientation": "default",
+    "userInterfaceStyle": "automatic",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "dev.conductor.scaffold"
+    },
+    "android": {
+      "package": "dev.conductor.scaffold"
+    },
+    "extra": {
+      "maturity": "scaffold",
+      "executionAvailable": false
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@conductor/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start --localhost",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "typecheck": "tsc -p tsconfig.json",
+    "export": "expo export --platform all"
+  },
+  "dependencies": {
+    "@conductor/domain": "workspace:*",
+    "expo": "57.0.25",
+    "react": "19.2.3",
+    "react-native": "0.86.3"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "@conductor/control-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@conductor/protocol": "workspace:*",
+    "fastify": "5.12.5"
+  }
+}

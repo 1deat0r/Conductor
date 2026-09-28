@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "role": "systems",
+  "reviewer": "Independent systems reviewer (/root/systems_review)",
+  "round": 1,
+  "spec_sha256": "a6297a772d4e0f0f23e1bf7d9703b96d4057d2557a4fed0961c2f9f5f4cc8d29",
+  "verdict": "REQUEST_CHANGES",
+  "blocking_findings": [
+    {
+      "id": "SYS-001",
+      "affected_requirements": ["R15", "R11", "R01"],
+      "title": "Unconditional workload isolation conflicts with trusted-host account authority",
+      "failure_case": "S1 trusted-host execution inherits same-user access while R15 unconditionally prohibits workloads from reaching account-accessible host sockets and ambient credentials. R11 and the threat model explicitly acknowledge that same-user ACLs cannot enforce that prohibition.",
+      "resolution": "Scope resource exclusions, enforced egress and isolated broker/workload identity guarantees to qualified restricted/managed profiles; explicitly state the account authority and absence of same-user isolation in trusted-host mode; keep R09 strong publication/failover guarantees conditional on a genuinely enforced credential boundary."
+    }
+  ],
+  "nonblocking_notes": [
+    {
+      "id": "SYS-N01",
+      "affected_requirements": ["R05", "R06", "R08", "R09"],
+      "failure_case": "Future implementations could disagree about whether outcome_unknown is terminal or about allowed reconciliation/revised-change transitions.",
+      "resolution": "In S1 execution schemas and conformance vectors, enumerate terminal states and explicit authenticated reconciliation transitions while preserving the specified prohibition on replay resurrection and uncertain relaunch."
+    },
+    {
+      "id": "SYS-N02",
+      "affected_requirements": ["R02", "R09"],
+      "failure_case": "The deferred network broker in R02 could be confused with the required credentialed effect broker in R09.",
+      "resolution": "Rename the deferred infrastructure to message broker/stream service."
+    }
+  ]
+}
