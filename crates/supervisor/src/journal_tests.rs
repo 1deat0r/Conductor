@@ -1,7 +1,9 @@
 use crate::journal::{IntentDisposition, JournalError, LaunchState, SessionJournal};
 use rusqlite::Connection;
 use std::path::PathBuf;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static NEXT_TEMPORARY_DATABASE_ID: AtomicU64 = AtomicU64::new(0);
 
 struct TemporaryDatabase {
     directory: PathBuf,
@@ -9,13 +11,10 @@ struct TemporaryDatabase {
 
 impl TemporaryDatabase {
     fn new() -> Self {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system clock is after the Unix epoch")
-            .as_nanos();
+        let unique_id = NEXT_TEMPORARY_DATABASE_ID.fetch_add(1, Ordering::Relaxed);
         let directory = std::env::temp_dir().join(format!(
-            "conductor-supervisor-journal-{}-{timestamp}",
-            std::process::id()
+            "conductor-supervisor-journal-{}-{unique_id}",
+            std::process::id(),
         ));
         std::fs::create_dir(&directory).expect("create isolated test database directory");
         Self { directory }
@@ -30,6 +29,14 @@ impl Drop for TemporaryDatabase {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.directory);
     }
+}
+
+#[test]
+fn temporary_database_paths_are_unique() {
+    let first = TemporaryDatabase::new();
+    let second = TemporaryDatabase::new();
+
+    assert_ne!(first.path(), second.path());
 }
 
 #[test]
