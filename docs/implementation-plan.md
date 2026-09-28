@@ -34,7 +34,7 @@ S0 is scaffold readiness. S1/S2/S3 below are future product gates and cannot be 
 | R22 | S1 local bounds; S3 funded work | Restart/DST/occurrence deduplication, bounded fanout, partition spend/restore/clock rollback, worst-case in-flight overshoot and orphan inventory cleanup |
 | R23 | S2 remote; before distributed updates | Audience/SSRF/token leak tests; signed downgrade/payload substitution/revocation; interrupted install, supported version pairs, separate migration writers |
 | R24 | S2 hosted; S3 managed | Restore before effect/revocation/spend while old host lives; fresh generation, uncertainty quarantine, full manifest/object/key recovery and measured SLO/restore drill |
-| R25 | Initial bootstrap; ongoing development | Agents complete routine work autonomously: local pnpm verify, diff review, atomic commit and synchronization; Issues/branches/PRs are optional; exact-commit Ubuntu/Windows/macOS checks gate protected-main updates; preserve live no-force/no-delete protections, risk-based security/release gates and honest platform evidence |
+| R25 | Initial bootstrap; ongoing development | Agents complete routine work autonomously; the independent expert board decides material choices without user approval; run local pnpm verify, review diffs, commit atomically and synchronize; Issues/branches/PRs are optional; exact-commit Ubuntu/Windows/macOS checks gate main; preserve no-force/no-delete protections, security/release gates and honest platform evidence |
 
 ## Delivery sequencing and ownership
 

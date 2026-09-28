@@ -2,6 +2,8 @@
 
 Conductor is developed by autonomous coding agents. For ordinary repository work, the agent owns the task from inspection through verified commit and synchronization; do not make the user supervise routine choices or repeat a skill's interactive checkpoints.
 
+The user has delegated material product and engineering choices to Conductor's [independent expert board](agents/decision-board.md). Board decisions replace clarification/approval loops for those choices.
+
 The normal loop is:
 
     task/context → inspect → implement → pnpm verify → review diff → atomic commit → synchronize
@@ -11,7 +13,8 @@ GitHub provides backup, synchronization, cross-platform clean-environment checks
 ## Autonomous execution
 
 - Read git status first and preserve all existing user/agent work. Read the relevant SPEC sections, contracts, implementation gates and decisions; do not reread unrelated material.
-- Resolve routine ambiguity with the safest reversible choice. Record a short assumption in the task notes or commit when useful, then continue. Ask the user only when a missing decision materially changes product behavior and no safe, reversible default exists, or when an action needs authority the user has not granted.
+- Resolve routine ambiguity with the safest reversible choice. Record a short assumption in the task notes or commit when useful, then continue. Send any new material product/engineering choice to the expert board; do not ask the user to break a tie, choose a design, approve a plan, or accept a risk. If the board's terminal rule defers a critical choice, keep only that capability disabled and continue unrelated safe work.
+- Ask for no user input to settle a product or engineering decision. An external action requiring account-owner authority, production access, spending or publication remains outside the board's authority; prepare and verify locally, then leave only that specifically unauthorized action pending.
 - Use Matt Pocock skills as tools, not as a reason to pause. Their default instructions to ask, wait for direction, get confirmation, or create Issues/PRs are overridden for Conductor by this policy. Infer ordinary decisions from the request and repository, perform all locally possible steps, and keep going. Do not invoke an interactive skill when its purpose is only to collect approval for work that can safely proceed.
 - If a skill encounters a true human-only step (for example, unavailable credentials, an account-owner decision, an irreversible external effect, or required independent release review), isolate that step. Complete unrelated safe work, record the precise blocker, and leave only the affected action or capability pending.
 - Make routine reversible repository changes, run commands, use focused local notes, commit, push and integrate without asking for another confirmation. Do not send third-party messages, create public announcements, provision paid resources, use production credentials, publish, deploy, submit to app stores, or delete user data unless the task explicitly authorizes that action.

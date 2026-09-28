@@ -1,6 +1,6 @@
 # Contributing to Conductor
 
-Conductor is developed autonomously and locally first. For ordinary changes, work in the current checkout, run the canonical verification command, review the diff, make a focused commit and synchronize it without routine user approval. Do not create an Issue, branch, worktree or PR just to satisfy process. The complete policy and exceptions are in [docs/development-workflow.md](docs/development-workflow.md).
+Conductor is developed autonomously and locally first. For ordinary changes, work in the current checkout, run the canonical verification command, review the diff, make a focused commit and synchronize it without routine user approval. The independent expert board makes material product and engineering decisions; do not ask the user to choose between options. Do not create an Issue, branch, worktree or PR just to satisfy process. The complete policy is in [docs/development-workflow.md](docs/development-workflow.md) and [docs/agents/decision-board.md](docs/agents/decision-board.md).
 
 ## Verify before committing
 

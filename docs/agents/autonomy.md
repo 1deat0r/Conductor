@@ -4,13 +4,15 @@ This is the project-specific adapter for the installed Matt Pocock skills. [The 
 
 ## Skill behavior
 
-- **Grilling / grill-me / grill-with-docs:** inspect the repository and answer factual questions yourself. For choices with a safe, reversible default, select it, record the assumption if it affects the result, and proceed. Ask only when the unresolved choice materially changes product behavior and no safe default exists.
+- **Grilling / grill-me / grill-with-docs:** inspect the repository and answer factual questions yourself. For choices with a safe, reversible default, select it, record the assumption if it affects the result, and proceed. Route unresolved material product or engineering choices to [the expert board](decision-board.md); do not ask the user to decide or approve them.
 - **To-spec / implement / implement-spec / TDD:** derive scope and test seams from the user task, SPEC, contracts, existing architecture and implementation gates. Do not stop for routine plan, seam, or test approval. Preserve every explicit security/release gate and verify the resulting change.
 - **To-tickets / Wayfinder:** work directly from the current task for small, in-session work. Create a GitHub Issue/map only for durable backlog, multi-session work, dependencies, major features or coordination. When a durable plan helps, create and maintain it without asking for routine confirmation.
 - **Triage:** inspect evidence, choose the correct state/category labels, and advance agent-ready work without asking a maintainer to repeat the instruction. Leave work awaiting an actual external fact or human-only action only when that dependency is real; record the exact blocker.
 - **Code review / diagnosing bugs:** inspect available evidence, relevant source and local checks first. If a missing production artifact, credential, physical-device action or independent reviewer blocks only one conclusion, report that limitation and continue all other safe work. Never invent a reproduction, review identity, CI status or security qualification.
 - **PR / GitHub skills:** use GitHub only when it adds review, tracking, coordination or required remote verification. Keep a PR moving through checks and merge it autonomously when all actual rules are satisfied. Do not ask the user to approve a PR when no such rule exists.
 - **Wizard / human-in-the-loop skills:** use only for steps that truly require the account owner or a human physically present. Do not create a human wizard to obtain approval for routine code changes.
+
+For any skill not listed above, this same Conductor policy applies. If it asks the user to resolve a material product or engineering choice, convene the board; if it asks for routine confirmation, make the safe choice and proceed.
 
 ## Stop only for a real boundary
 

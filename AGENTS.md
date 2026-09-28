@@ -7,6 +7,7 @@ Conductor uses an autonomous, local-first development loop. The canonical policy
 - Inspect git status first and preserve existing changes. Work in the current checkout unless isolation or remote integration calls for a branch/worktree.
 - Follow: task/context → inspect → implement → pnpm verify → review the diff → focused atomic commit → synchronize.
 - Complete routine work end-to-end without asking the user to choose reversible implementation details or to approve routine local actions. Resolve defaults from the repository and task, note material assumptions, and proceed.
+- Before committing to a new material product, architecture, privacy, security, platform, recovery, governance or long-horizon choice, convene the independent expert board in [docs/agents/decision-board.md](docs/agents/decision-board.md). The board decides for the user; never route product choices, dissent or a split vote back to the user.
 - Matt Pocock skills' default prompts to ask, wait for direction, confirm, create an Issue, or use a PR do not apply when they add no material value. See [the Conductor autonomy policy](docs/agents/autonomy.md).
 - Issues and PRs are optional. Use them when durable tracking, coordination, risk review or substantial remote review adds value; agents may carry them through without routine user approval.
 - Run pnpm verify from the repository root before committing. If it cannot run, state why and do not claim verification. Add relevant platform qualification when the change needs it.
@@ -23,7 +24,7 @@ Conductor uses an autonomous, local-first development loop. The canonical policy
 
 ## Agent skills
 
-Use the Matt Pocock engineering skills that fit the task, but follow this repository's local-first workflow instead of any skill's default Issue/branch/PR orchestration. The installed version audit is in [docs/agents/README.md](docs/agents/README.md).
+Use the Matt Pocock engineering skills that fit the task, but follow this repository's autonomous workflow and expert-board procedure instead of any skill's default user-approval, Issue/branch/PR or human-escalation orchestration. The installed version audit and Conductor adapters are in [docs/agents/README.md](docs/agents/README.md).
 
 ### Issue tracker
 

@@ -7,7 +7,7 @@ Use the installed Matt Pocock triage skill only when an Issue needs triage. Issu
 | needs-triage | needs-triage | Maintainer evaluation is needed |
 | needs-info | needs-info | Waiting for reporter information |
 | ready-for-agent | ready-for-agent | Scoped and ready for an agent |
-| ready-for-human | ready-for-human | Requires a genuinely human-only action, missing owner authority or independent release gate |
+| ready-for-human | ready-for-human | Requires a genuinely owner-only action or independent human release qualification; product/engineering judgment goes to the expert board |
 | wontfix | wontfix | Will not be actioned |
 | bug | bug | Issue category: broken behavior |
 | enhancement | enhancement | Issue category: requested improvement |
