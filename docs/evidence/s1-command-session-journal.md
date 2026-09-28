@@ -4,9 +4,9 @@ Issue: [#1](https://github.com/1deat0r/Conductor/issues/1)
 
 Base commit: `ffab4b3e9e5e03d63d222e4263791ef70347ea4f`
 
-Source tree tested locally (evidence file excluded): `f87b1ee6c1cc832e33240d1afdcac68e16d234b4`
+Source tree tested locally (evidence file excluded): `4772a1d08855e5f7f8c4bee4fd6b786e372aebc7`
 
-Verification completed by 2026-09-28 08:31 UTC
+Verification completed by 2026-09-28 08:39 UTC
 
 ## Environment
 
@@ -22,9 +22,9 @@ Ubuntu 26.04.1 LTS, Linux 7.0.0-34-generic, x86_64; Node v26.8.1; pnpm 11.18.0; 
 | `cargo run --locked -q -p conductor-host -- doctor` | Returned the scaffold health envelope with `execution_available: false` | Diagnostic only |
 | `cargo run --locked -q -p conductor-supervisor -- doctor` | Returned the scaffold health envelope with `execution_available: false` | Diagnostic only |
 | `git diff --check` | Passed | Static whitespace check only |
-| GitHub Actions source matrix | Ubuntu, Windows, and macOS passed on `c63aa825c5f49b31dbe5fa9b29ead78a8c3b6563` in [run 36394341721](https://github.com/1deat0r/Conductor/actions/runs/36394341721), and on `eb36f22a2810a8165c0f4f7d4d5397a5bcb2533d` in [run 36396629895](https://github.com/1deat0r/Conductor/actions/runs/36396629895) | Both runs predate the latest schema-boundary change. Use the live PR checks for current-head evidence. |
+| GitHub Actions source matrix | Ubuntu, Windows, and macOS passed on `c63aa825c5f49b31dbe5fa9b29ead78a8c3b6563` in [run 36394341721](https://github.com/1deat0r/Conductor/actions/runs/36394341721), and on `eb36f22a2810a8165c0f4f7d4d5397a5bcb2533d` in [run 36396629895](https://github.com/1deat0r/Conductor/actions/runs/36396629895) | These runs predate the final migration quarantine fix. They are historical platform evidence only; current-head required checks must pass after that fix is pushed. |
 
-Rust tests exercise SQLite WAL/FULL settings, command identity/digest deduplication, concurrent duplicate delivery, stale/expired admission, atomic host-admission/outbox rollback, durable state after reopen, cancellation request/confirmation, controller identity matching, and uncertain-start reconciliation without a second launch. They also cover unsupported journal envelope versions. Admission-transition coverage is test-only: production builds do not expose a path to `host_accepted` until a typed R06 command schema exists. Review fixes add migration coverage that removes the host-generated coordinator acknowledgement, a single-live-supervisor lease check, and deterministic start/cancel interleavings that keep a spawn receipt cancellable until tree-stop confirmation. Failure injection used SQLite triggers; the host filesystem was not filled to test a real `SQLITE_FULL` condition.
+Rust tests exercise SQLite WAL/FULL settings, command identity/digest deduplication, concurrent duplicate delivery, stale/expired admission, atomic host-admission/outbox rollback, durable state after reopen, cancellation request/confirmation, controller identity matching, and uncertain-start reconciliation without a second launch. They also cover unsupported journal envelope versions. Admission-transition coverage is test-only: production builds do not expose a path to `host_accepted` until a typed R06 command schema exists. Migration coverage quarantines legacy `coordinator_stored` and `host_accepted` rows, drops their undelivered acceptance events, and preserves `effect_resolved` as terminal with its event. A schema-version-255 v1 acceptance fixture proves unsupported legacy payloads cannot retain admission. Other fixes add a single-live-supervisor lease check and deterministic start/cancel interleavings that keep a spawn receipt cancellable until tree-stop confirmation. Failure injection used SQLite triggers; the host filesystem was not filled to test a real `SQLITE_FULL` condition.
 
 ## Scope and limitations
 

@@ -544,7 +544,11 @@ fn migrate(connection: &mut Connection) -> Result<(), JournalError> {
                 ) SELECT command_id, payload_digest, schema_version, tenant_id, task_id,
                     attempt_id, expected_revision, actor_id, device_id, deadline_unix_ms,
                     payload_json,
-                    CASE state WHEN 'coordinator_stored' THEN 'pending_host_admission' ELSE state END,
+                    CASE state
+                        WHEN 'coordinator_stored' THEN 'pending_host_admission'
+                        WHEN 'host_accepted' THEN 'pending_host_admission'
+                        ELSE state
+                    END,
                     rejection, effect_digest, state_updated_at_ms
                 FROM local_commands_v1;
                 INSERT INTO local_command_outbox (
@@ -552,7 +556,8 @@ fn migrate(connection: &mut Connection) -> Result<(), JournalError> {
                     occurred_at_ms, delivered_at_ms
                 ) SELECT event_id, command_id, aggregate_id, schema_version, event_type,
                     occurred_at_ms, delivered_at_ms
-                FROM local_command_outbox_v1 WHERE event_type <> 'coordinator_stored';
+                FROM local_command_outbox_v1
+                WHERE event_type NOT IN ('coordinator_stored', 'host_accepted');
                 DROP TABLE local_command_outbox_v1;
                 DROP TABLE local_commands_v1;
                 PRAGMA user_version = 2;",
@@ -761,6 +766,58 @@ mod tests {
         }
     }
 
+    fn insert_v1_command(
+        connection: &Connection,
+        command: &CommandEnvelope,
+        state: &str,
+        effect_digest: Option<&[u8]>,
+    ) {
+        let digest = command_digest(command);
+        connection
+            .execute(
+                "INSERT INTO local_commands (
+                    command_id, payload_digest, schema_version, tenant_id, task_id,
+                    attempt_id, expected_revision, actor_id, device_id, deadline_unix_ms,
+                    payload_json, state, rejection, effect_digest, state_updated_at_ms
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11,
+                    ?12, NULL, ?13, ?14)",
+                rusqlite::params![
+                    command.command_id,
+                    digest.as_slice(),
+                    i64::from(command.schema_version),
+                    command.tenant_id,
+                    command.task_id,
+                    command.attempt_id,
+                    command.expected_revision,
+                    command.actor_id,
+                    command.device_id,
+                    command.deadline_unix_ms,
+                    command.payload_json,
+                    state,
+                    effect_digest,
+                    500_i64,
+                ],
+            )
+            .expect("insert legacy command");
+    }
+
+    fn insert_v1_outbox_event(connection: &Connection, command: &CommandEnvelope, event: &str) {
+        connection
+            .execute(
+                "INSERT INTO local_command_outbox (
+                    command_id, aggregate_id, schema_version, event_type, occurred_at_ms
+                 ) VALUES (?1, ?2, ?3, ?4, ?5)",
+                rusqlite::params![
+                    command.command_id,
+                    command.task_id,
+                    i64::from(command.schema_version),
+                    event,
+                    500_i64,
+                ],
+            )
+            .expect("insert legacy outbox event");
+    }
+
     #[test]
     fn enables_wal_full_synchronous_and_foreign_keys() {
         let database = TempDatabase::new();
@@ -781,10 +838,14 @@ mod tests {
     }
 
     #[test]
-    fn migration_removes_host_emitted_coordinator_acknowledgements() {
+    fn migration_quarantines_unverified_acceptance_and_keeps_effects_terminal() {
         let database = TempDatabase::new();
-        let old_command = command("legacy-command", 4, 1_000);
-        let digest = command_digest(&old_command);
+        let coordinator_stored = command("legacy-coordinator", 4, 1_000);
+        let mut accepted = command("legacy-accepted", 4, 1_000);
+        accepted.schema_version = u8::MAX;
+        let mut resolved = command("legacy-resolved", 4, 1_000);
+        resolved.schema_version = u8::MAX;
+        let effect_digest = Sha256::digest(b"effect receipt");
         let legacy = Connection::open(database.path()).expect("create v1 journal");
         legacy
             .execute_batch(
@@ -821,52 +882,47 @@ mod tests {
                 PRAGMA user_version = 1;",
             )
             .expect("create v1 schema");
-        legacy
-            .execute(
-                "INSERT INTO local_commands (
-                    command_id, payload_digest, schema_version, tenant_id, task_id,
-                    attempt_id, expected_revision, actor_id, device_id, deadline_unix_ms,
-                    payload_json, state, rejection, effect_digest, state_updated_at_ms
-                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11,
-                    'coordinator_stored', NULL, NULL, ?12)",
-                rusqlite::params![
-                    old_command.command_id,
-                    digest.as_slice(),
-                    i64::from(old_command.schema_version),
-                    old_command.tenant_id,
-                    old_command.task_id,
-                    old_command.attempt_id,
-                    old_command.expected_revision,
-                    old_command.actor_id,
-                    old_command.device_id,
-                    old_command.deadline_unix_ms,
-                    old_command.payload_json,
-                    500_i64,
-                ],
-            )
-            .expect("insert old command");
-        legacy
-            .execute(
-                "INSERT INTO local_command_outbox (
-                    command_id, aggregate_id, schema_version, event_type, occurred_at_ms
-                 ) VALUES (?1, ?2, ?3, 'coordinator_stored', ?4)",
-                rusqlite::params![old_command.command_id, old_command.task_id, 1_i64, 500_i64],
-            )
-            .expect("insert false coordinator receipt");
+        insert_v1_command(&legacy, &coordinator_stored, "coordinator_stored", None);
+        insert_v1_command(&legacy, &accepted, "host_accepted", None);
+        insert_v1_command(
+            &legacy,
+            &resolved,
+            "effect_resolved",
+            Some(effect_digest.as_slice()),
+        );
+        insert_v1_outbox_event(&legacy, &coordinator_stored, "coordinator_stored");
+        insert_v1_outbox_event(&legacy, &accepted, "host_accepted");
+        insert_v1_outbox_event(&legacy, &resolved, "effect_resolved");
         drop(legacy);
 
         let journal = CommandJournal::open(database.path()).expect("migrate v1 journal");
-        let migrated = journal
-            .query("legacy-command")
+        let pending_from_coordinator = journal
+            .query("legacy-coordinator")
             .expect("query migrated row")
-            .expect("migrated command");
-        assert_eq!(migrated.state, CommandState::PendingHostAdmission);
-        assert!(
-            journal
-                .pending_outbox_events(32)
-                .expect("outbox")
-                .is_empty()
+            .expect("migrated coordinator command");
+        assert_eq!(
+            pending_from_coordinator.state,
+            CommandState::PendingHostAdmission
         );
+        let pending_from_unsupported_acceptance = journal
+            .query("legacy-accepted")
+            .expect("query migrated accepted row")
+            .expect("migrated accepted command");
+        assert_eq!(
+            pending_from_unsupported_acceptance.state,
+            CommandState::PendingHostAdmission
+        );
+        let terminal = journal
+            .query("legacy-resolved")
+            .expect("query migrated resolution")
+            .expect("migrated resolution");
+        assert_eq!(terminal.state, CommandState::EffectResolved);
+        assert_eq!(terminal.effect_digest, Some(hex(effect_digest.as_slice())));
+
+        let events = journal.pending_outbox_events(32).expect("migrated outbox");
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].command_id, "legacy-resolved");
+        assert_eq!(events[0].event_type, "effect_resolved");
     }
 
     #[test]
