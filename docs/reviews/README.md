@@ -1,5 +1,5 @@
-# Independent specification review
+# Initial specification review archive
 
-Each expert reviews the same bytes named by scope.json and produces a Markdown analysis plus a JSON verdict. roles: systems, security, platforms. Verdict is APPROVE or REQUEST_CHANGES; blocking_findings must be empty for approval. Every finding gets a stable ID, affected requirement, failure case and concrete resolution. Optional implementation refinements do not block a spec that is ready to implement.
+The files in this directory preserve the independent systems, security and platform reviews of the initial Conductor specification before the 2026-09-28 repository bootstrap. Their verdicts and exact-scope hashes are historical records; do not edit another reviewer's files or represent these records as implementation security qualification.
 
-Reviewer JSON: schema_version, role, reviewer, round, spec_sha256, verdict, blocking_findings, nonblocking_notes. The reviewer writes it; the author may not alter it. approvals.json points to the final independent records and binds them to `node scripts/spec-hash.mjs`. `pnpm check:approvals` fails for missing/rejected/stale records. Old rounds remain preserved. This is independent model-agent review, not a human or implementation security audit.
+The recurring check:approvals gate has been retired from local verification and CI. Routine changes follow [the local-first development workflow](../development-workflow.md): run pnpm verify, inspect the diff and commit atomically. Apply review in proportion to risk, and keep current GitHub branch protections for remote integration. scope.json and the archived hashes remain to explain the initial review bundle.

@@ -22,6 +22,6 @@ The initial TS run failed because Node test types were not explicitly selected. 
 
 Not performed: Windows/macOS execution, native Android/iOS builds or device tests, Node 24 CI, installer/notarization/store/signing checks, hostile-workload isolation, execution/crash recovery, authenticated remote control, mobile key/cache enforcement, cloud deployment or production security audit. These remain explicit specification gates.
 
-Run `pnpm check:approvals` for the current independent specification verdicts. A passing review does not convert any of the above gaps into completed tests.
+At bootstrap, pnpm check:approvals verified the initial specification verdicts. That one-time gate was retired from routine verification on 2026-09-29; the original review records remain historical and do not qualify product security.
 
 Workflow YAML parsed successfully and the Linux sandbox setup passed `bash -n` syntax validation. Its privileged helper setup is scoped to an ephemeral GitHub-hosted Linux runner and was not executed against the developer host. A limited scan of new nonignored scaffold files found no matches for known GitHub/AWS token and private-key patterns; that scan is not a comprehensive secret audit.

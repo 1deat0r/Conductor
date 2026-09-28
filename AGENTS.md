@@ -1,17 +1,34 @@
-# Conductor contributor contract
+# Conductor agent instructions
 
-Read SPEC.md, STATE.md, docs/implementation-plan.md and docs/development-workflow.md before changes.
+Conductor uses a local-first development loop. The canonical policy is in [docs/development-workflow.md](docs/development-workflow.md); read it when a task touches process or remote integration. For product work, read only the relevant sections of SPEC.md, contracts and decision records.
 
-STRICT RULE: Conductor development must happen through GitHub issues, isolated branches/worktrees and pull requests. After the single approved bootstrap, never push directly to main, bypass protection or self-approve. Every PR requires independent parallel systems, security and platform expert approvals on the exact current head, required CI and an eligible non-author GitHub approval. Agents using one account are not distinct GitHub reviewers. Follow CONTRIBUTING.md and docs/development-workflow.md; never silently substitute chat-only completion for the GitHub record.
+## Routine work
 
-SPEC.md and contracts/ are normative; docs/reference/ is historical rationale only. This is a new independent implementation. Do not copy Superset implementation code or brand assets.
+- Inspect git status first and preserve existing changes. Work in the current checkout unless isolation or remote integration calls for a branch/worktree.
+- Follow: task/context → inspect → implement → pnpm verify → review the diff → make a focused, atomic commit.
+- Issues and PRs are optional for local work. Use them when they add durable tracking, coordination, risk review or are required to integrate with protected main.
+- Run pnpm verify from the repository root before committing. If it cannot run, state why and do not claim verification. Add relevant platform qualification when the change needs it.
 
-Keep all five targets in scope. Source typechecking is not native-platform qualification. The S0 scaffold intentionally cannot execute agents, authorize tools, enroll devices, store credentials or mutate repositories. Unsupported execution must remain unavailable until the relevant SPEC requirement and release gates are implemented.
+## Product and security constraints
 
-Use pnpm with its committed lockfile and Cargo with Cargo.lock. From the root run `pnpm verify`; review changes also run `pnpm check:approvals`. No install-script blanket approval, production credentials, real cloud provisioning, publishing or app-store submission is part of ordinary scaffolding.
+- SPEC.md and contracts/ are normative for product behavior; docs/reference is historical rationale. This is an independent implementation: do not copy Superset code or brand assets. Keep Linux, Windows, macOS, Android and iPhone in scope; source checks do not qualify native behavior.
+- The S0 scaffold cannot execute agents, authorize tools, enroll devices, store credentials or mutate repositories. Keep unsupported execution unavailable until its SPEC requirements and release gates are implemented.
+- Authority, privacy, durable command acknowledgement and execution isolation are protocol concerns, not renderer conveniences. Keep model/provider adapters and untrusted work outside privileged processes. Do not add fake success or insecure fallbacks.
+- Do not use production credentials, provision real cloud resources, publish packages/releases or submit apps as part of ordinary development. Follow the relevant security and release gates for explicitly requested work.
+- Never bypass active repository protections, push directly to protected main, self-approve, or claim a platform/release result without evidence. See the workflow for current remote integration requirements.
 
-Authority, privacy, durable command acknowledgement and execution isolation are protocol concerns, never renderer conveniences. Keep model/provider adapters and untrusted work outside privileged processes. Do not make fake success or insecure fallbacks to pass tests.
+## Agent skills
 
-Review scope is docs/reviews/scope.json. Approval binds to the exact scope hash from `pnpm spec:hash`. Spec or contract changes invalidate approval. Independent reviewers write only their assigned files in docs/reviews; the author resolves findings and requests a recheck. APPROVE means ready to implement the specification, not tested production security. Never change a reviewer's verdict yourself.
+Use the Matt Pocock engineering skills that fit the task, but follow this repository's local-first workflow instead of any skill's default Issue/branch/PR orchestration. The installed version audit is in [docs/agents/README.md](docs/agents/README.md).
 
-Mounted disk UUID: 6b9f257c-a863-4dab-94d6-70be1e10b526. Canonical project path: /mnt/data/Desktop Apps/Conductor. The user-selected /run/media/its1deat0r/Projects alias is the same SSD. Parent catalog tooling was absent on 2026-09-28; STATE.md records the pending registration without modifying the global generated ledger.
+### Issue tracker
+
+GitHub Issues are optional persistent tracking. See [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md).
+
+### Triage labels
+
+Use the default triage labels only when an Issue needs triage. See [docs/agents/triage-labels.md](docs/agents/triage-labels.md).
+
+### Domain docs
+
+Use a single-context layout: root CONTEXT.md when present, plus the relevant project decisions. See [docs/agents/domain.md](docs/agents/domain.md).

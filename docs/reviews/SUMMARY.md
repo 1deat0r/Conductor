@@ -1,5 +1,7 @@
 # Final specification review
 
+> Historical bootstrap record: the following approvals applied to the initial specification bundle before repository creation. The aggregate approval check has since been retired from routine development; see [the current workflow](../development-workflow.md).
+
 All three independent roles approved revision 2026.09.28-4 at SHA-256 `46bd998630729de759eecb2e7b10ceca6ab482220c52b5122d4ce98b43ae1b01`. The aggregate gate is `pnpm check:approvals`; any normative edit invalidates the approval.
 
 | Role | Round 1 | Round 2 | Final round 3 |
@@ -12,4 +14,4 @@ Original findings, author responses and reviewer-authored verdicts remain preser
 
 Approval means the specification is ready to implement. The nonexecuting S0 scaffold has local test evidence, but native qualification and unbuilt runtime/security guarantees remain explicit future gates. Systems note SYS-N01 is carried forward into the S1 execution-schema work; it is not an unresolved blocker.
 
-The owner's public-repository creation condition is satisfied only after this aggregate check passes. GitHub must then verify the bootstrap settings and actual CI independently; prose approval is not a remote CI result.
+The owner's original public-repository creation condition was satisfied only after this aggregate check passed. That condition applied to initial repository creation; ongoing development follows the current local-first workflow.

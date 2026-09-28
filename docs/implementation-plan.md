@@ -8,7 +8,7 @@ S0 is scaffold readiness. S1/S2/S3 below are future product gates and cannot be 
 - Android/iPhone Expo source, SDK-aligned versions, configuration and JS/native bundle export where available. No claim of native build/device execution without Android SDK or macOS/Xcode evidence.
 - Loopback Fastify health and 501 command route; TS/Rust shared positive/negative health fixtures; Rust doctor/version binaries, no listeners or execution.
 - Committed lockfiles, reproducible scripts, public CI configuration and precise local evidence. A configured CI matrix is not a completed remote CI run.
-- Normative spec approved by all three independent roles on one exact hash. Approval describes implementation readiness only.
+- The initial normative spec was approved by all three independent roles before repository creation; this is historical bootstrap evidence, not recurring implementation qualification.
 
 ## Requirement traceability
 
@@ -34,7 +34,7 @@ S0 is scaffold readiness. S1/S2/S3 below are future product gates and cannot be 
 | R22 | S1 local bounds; S3 funded work | Restart/DST/occurrence deduplication, bounded fanout, partition spend/restore/clock rollback, worst-case in-flight overshoot and orphan inventory cleanup |
 | R23 | S2 remote; before distributed updates | Audience/SSRF/token leak tests; signed downgrade/payload substitution/revocation; interrupted install, supported version pairs, separate migration writers |
 | R24 | S2 hosted; S3 managed | Restore before effect/revocation/spend while old host lives; fresh generation, uncertainty quarantine, full manifest/object/key recovery and measured SLO/restore drill |
-| R25 | Approved bootstrap; every later change | Exact spec digest and three independent verdicts before public repo creation; read-back of active main rules, required CI, PR/issue/review records and actual merge state afterward |
+| R25 | Initial bootstrap; ongoing development | Local pnpm verify, reviewed diff and atomic commits; use Issues/branches/PRs when they add value or protected-main integration requires them; preserve live branch protections, risk-based human review and honest platform evidence |
 
 ## Delivery sequencing and ownership
 

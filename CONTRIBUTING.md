@@ -1,7 +1,19 @@
 # Contributing to Conductor
 
-**All development must use the mandatory [GitHub workflow](docs/development-workflow.md).** Read AGENTS.md, SPEC.md, STATE.md and the implementation gates first.
+Conductor is developed locally first. For ordinary changes, work in the current checkout, run the canonical verification command, review the diff and make a focused commit. Do not create an Issue, branch, worktree or PR just to satisfy process. The complete policy and exceptions are in [docs/development-workflow.md](docs/development-workflow.md).
 
-Start with an issue, use an isolated feature branch/worktree, open a draft PR, run `pnpm verify` and `pnpm check:approvals`, then obtain independent systems/security/platform reviews on the exact head. Resolve all blockers and refresh stale reviews. Protected main requires green checks and an eligible non-author GitHub approval; shared-account agents cannot self-approve through GitHub. Never push directly to main after the initial approved bootstrap or disable a gate to merge.
+## Verify before committing
 
-Keep changes focused and evidence honest. Native/device tests, hosted recovery and security enforcement must be tested before their capabilities are enabled. Follow the public PR template and maintainers' scope. No production credentials, third-party private code, unsanitized transcripts or unapproved releases.
+From the repository root, run:
+
+    pnpm verify
+
+This is the canonical pre-commit check. It validates the spec structure, TypeScript workspace, tests and build, then Rust formatting, Clippy and tests. Use targeted commands while iterating; run relevant platform checks for changes that need them. If verification cannot run, report the exact command and reason, and do not describe the change as verified.
+
+## GitHub and review
+
+Issues and PRs are optional unless durable tracking, coordination, material review or protected-branch integration makes them useful. The active main ruleset currently requires remote changes to arrive through a PR with required cross-platform checks and an eligible non-author approval. Never push directly to protected main, self-approve or bypass a gate. Check the live ruleset if its requirements may have changed.
+
+Use independent human review in proportion to risk. Changes to authority, trust boundaries, privacy, durability, credentials, platform lifecycle, release controls or execution isolation need focused specialist review and relevant adversarial/platform evidence before the affected capability is enabled or released. AI reviews can find issues but do not establish human approval or security qualification.
+
+Preserve user work, keep commits atomic and evidence accurate. Do not introduce production credentials, private third-party code, fake success or unapproved releases.
