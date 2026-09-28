@@ -43,4 +43,4 @@ The initial Material proposal v1 (`2026-09-29-s1-sqlite-msrv-proposal-v1.md`, SH
 
 ## Adoption record
 
-The selected implementation must be locally verified, reviewed, and committed atomically with this decision record. The commit SHA that activates this decision is recorded in the separate non-normative adoption metadata after the commit exists. Until that SHA is recorded, do not treat this uncommitted board decision as active repository policy.
+The selected implementation must be locally verified, reviewed, and committed atomically with this decision record. The activation SHA and verification evidence are recorded in the separate [adoption metadata](2026-09-29-s1-sqlite-msrv-adoption.md). That metadata does not alter the reviewed proposal, option, or vote.
