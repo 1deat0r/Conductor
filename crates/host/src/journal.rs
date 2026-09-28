@@ -5,7 +5,7 @@ use rusqlite::{
 };
 use sha2::{Digest, Sha256};
 
-const DATABASE_VERSION: i64 = 1;
+const DATABASE_VERSION: i64 = 2;
 const MAX_IDENTIFIER_BYTES: usize = 256;
 const MAX_COMMAND_PAYLOAD_BYTES: usize = 1_048_576;
 const MAX_OUTBOX_BATCH_SIZE: usize = 256;
@@ -31,7 +31,7 @@ pub struct CommandEnvelope {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CommandState {
-    CoordinatorStored,
+    PendingHostAdmission,
     HostAccepted,
     HostRejected,
     EffectResolved,
@@ -40,7 +40,7 @@ pub enum CommandState {
 impl CommandState {
     fn as_str(self) -> &'static str {
         match self {
-            Self::CoordinatorStored => "coordinator_stored",
+            Self::PendingHostAdmission => "pending_host_admission",
             Self::HostAccepted => "host_accepted",
             Self::HostRejected => "host_rejected",
             Self::EffectResolved => "effect_resolved",
@@ -49,7 +49,7 @@ impl CommandState {
 
     fn parse(value: &str) -> Result<Self, JournalError> {
         match value {
-            "coordinator_stored" => Ok(Self::CoordinatorStored),
+            "pending_host_admission" => Ok(Self::PendingHostAdmission),
             "host_accepted" => Ok(Self::HostAccepted),
             "host_rejected" => Ok(Self::HostRejected),
             "effect_resolved" => Ok(Self::EffectResolved),
@@ -108,7 +108,6 @@ pub enum JournalError {
     InvalidInput(&'static str),
     CommandNotFound,
     PayloadMismatch,
-    Expired,
     InvalidTransition {
         state: CommandState,
         requested: &'static str,
@@ -128,7 +127,6 @@ impl fmt::Display for JournalError {
             Self::PayloadMismatch => {
                 f.write_str("command ID was already used with different immutable content")
             }
-            Self::Expired => f.write_str("command deadline has expired"),
             Self::InvalidTransition { state, requested } => {
                 write!(f, "cannot {requested} a command in state {state:?}")
             }
@@ -161,10 +159,12 @@ impl From<rusqlite::Error> for JournalError {
 
 /// One writer connection owned by the local host controller.
 ///
-/// Command state and outbox rows are committed together. The caller may send
-/// an outbox event and mark it delivered only after a successful send; a crash
-/// between send and mark can produce a duplicate, consistent with at-least-once
-/// delivery. This module does not implement authorization or execute effects.
+/// Host inbox state is committed before a receipt is returned. Each transition
+/// that emits an outbox event commits that event with the state change. The
+/// caller may send an outbox event and mark it delivered only after a
+/// successful send; a crash between send and mark can produce a duplicate,
+/// consistent with at-least-once delivery. This module does not implement
+/// authorization or execute effects.
 pub struct CommandJournal {
     connection: Mutex<Connection>,
 }
@@ -186,10 +186,16 @@ impl CommandJournal {
         })
     }
 
-    /// Commit a command and its `coordinator_stored` outbox event before
-    /// returning a receipt. A replay with the same immutable command returns
-    /// its prior state, even when the original deadline has since passed.
-    pub fn store_coordinator_command(
+    /// Commit a command to the local host inbox before returning a receipt.
+    /// This is not a `coordinator_stored` acknowledgement: only the
+    /// coordinator can emit that receipt. The caller must deliver the
+    /// coordinator's stored command to this inbox, then call
+    /// `record_host_admission` before emitting `host_accepted`.
+    ///
+    /// A replay with the same immutable command returns its prior state, even
+    /// when the original deadline has since passed. Expired commands are
+    /// stored so the host can durably reject them.
+    pub fn store_host_command(
         &self,
         command: &CommandEnvelope,
         now_unix_ms: i64,
@@ -212,17 +218,13 @@ impl CommandJournal {
             transaction.commit()?;
             return Ok(existing);
         }
-        if command.deadline_unix_ms <= now_unix_ms {
-            return Err(JournalError::Expired);
-        }
-
         transaction.execute(
             "INSERT INTO local_commands (
                 command_id, payload_digest, schema_version, tenant_id, task_id,
                 attempt_id, expected_revision, actor_id, device_id, deadline_unix_ms,
                 payload_json, state, rejection, effect_digest, state_updated_at_ms
             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11,
-                      'coordinator_stored', NULL, NULL, ?12)",
+                      'pending_host_admission', NULL, NULL, ?12)",
             params![
                 command.command_id,
                 digest.as_slice(),
@@ -238,7 +240,6 @@ impl CommandJournal {
                 now_unix_ms,
             ],
         )?;
-        insert_outbox_event(&transaction, command, "coordinator_stored", now_unix_ms)?;
         let receipt = read_receipt(&transaction, &command.command_id)?
             .ok_or(JournalError::CommandNotFound)?;
         transaction.commit()?;
@@ -265,7 +266,7 @@ impl CommandJournal {
         let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let existing =
             read_receipt(&transaction, command_id)?.ok_or(JournalError::CommandNotFound)?;
-        if existing.state != CommandState::CoordinatorStored {
+        if existing.state != CommandState::PendingHostAdmission {
             transaction.commit()?;
             return Ok(existing);
         }
@@ -283,7 +284,7 @@ impl CommandJournal {
         transaction.execute(
             "UPDATE local_commands SET state = ?2, rejection = ?3,
                     state_updated_at_ms = ?4
-             WHERE command_id = ?1 AND state = 'coordinator_stored'",
+             WHERE command_id = ?1 AND state = 'pending_host_admission'",
             params![
                 command_id,
                 state.as_str(),
@@ -471,7 +472,7 @@ fn migrate(connection: &mut Connection) -> Result<(), JournalError> {
                     deadline_unix_ms INTEGER NOT NULL CHECK(deadline_unix_ms >= 0),
                     payload_json BLOB NOT NULL,
                     state TEXT NOT NULL CHECK(state IN (
-                        'coordinator_stored', 'host_accepted', 'host_rejected', 'effect_resolved'
+                        'pending_host_admission', 'host_accepted', 'host_rejected', 'effect_resolved'
                     )),
                     rejection TEXT CHECK(rejection IN ('expired', 'stale_revision') OR rejection IS NULL),
                     effect_digest BLOB CHECK(effect_digest IS NULL OR length(effect_digest) = 32),
@@ -488,7 +489,67 @@ fn migrate(connection: &mut Connection) -> Result<(), JournalError> {
                     delivered_at_ms INTEGER CHECK(delivered_at_ms IS NULL OR delivered_at_ms >= 0),
                     UNIQUE(command_id, event_type)
                 );
-                PRAGMA user_version = 1;",
+                PRAGMA user_version = 2;",
+            )?;
+            transaction.commit()?;
+            Ok(())
+        }
+        1 => {
+            let transaction =
+                connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            transaction.execute_batch(
+                "ALTER TABLE local_command_outbox RENAME TO local_command_outbox_v1;
+                ALTER TABLE local_commands RENAME TO local_commands_v1;
+                DROP INDEX local_commands_by_task;
+                CREATE TABLE local_commands (
+                    command_id TEXT PRIMARY KEY NOT NULL,
+                    payload_digest BLOB NOT NULL CHECK(length(payload_digest) = 32),
+                    schema_version INTEGER NOT NULL CHECK(schema_version BETWEEN 1 AND 255),
+                    tenant_id TEXT NOT NULL,
+                    task_id TEXT NOT NULL,
+                    attempt_id TEXT NOT NULL,
+                    expected_revision INTEGER NOT NULL CHECK(expected_revision >= 0),
+                    actor_id TEXT NOT NULL,
+                    device_id TEXT NOT NULL,
+                    deadline_unix_ms INTEGER NOT NULL CHECK(deadline_unix_ms >= 0),
+                    payload_json BLOB NOT NULL,
+                    state TEXT NOT NULL CHECK(state IN (
+                        'pending_host_admission', 'host_accepted', 'host_rejected', 'effect_resolved'
+                    )),
+                    rejection TEXT CHECK(rejection IN ('expired', 'stale_revision') OR rejection IS NULL),
+                    effect_digest BLOB CHECK(effect_digest IS NULL OR length(effect_digest) = 32),
+                    state_updated_at_ms INTEGER NOT NULL CHECK(state_updated_at_ms >= 0)
+                );
+                CREATE INDEX local_commands_by_task ON local_commands(task_id, state);
+                CREATE TABLE local_command_outbox (
+                    event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    command_id TEXT NOT NULL REFERENCES local_commands(command_id),
+                    aggregate_id TEXT NOT NULL,
+                    schema_version INTEGER NOT NULL CHECK(schema_version BETWEEN 1 AND 255),
+                    event_type TEXT NOT NULL,
+                    occurred_at_ms INTEGER NOT NULL CHECK(occurred_at_ms >= 0),
+                    delivered_at_ms INTEGER CHECK(delivered_at_ms IS NULL OR delivered_at_ms >= 0),
+                    UNIQUE(command_id, event_type)
+                );
+                INSERT INTO local_commands (
+                    command_id, payload_digest, schema_version, tenant_id, task_id,
+                    attempt_id, expected_revision, actor_id, device_id, deadline_unix_ms,
+                    payload_json, state, rejection, effect_digest, state_updated_at_ms
+                ) SELECT command_id, payload_digest, schema_version, tenant_id, task_id,
+                    attempt_id, expected_revision, actor_id, device_id, deadline_unix_ms,
+                    payload_json,
+                    CASE state WHEN 'coordinator_stored' THEN 'pending_host_admission' ELSE state END,
+                    rejection, effect_digest, state_updated_at_ms
+                FROM local_commands_v1;
+                INSERT INTO local_command_outbox (
+                    event_id, command_id, aggregate_id, schema_version, event_type,
+                    occurred_at_ms, delivered_at_ms
+                ) SELECT event_id, command_id, aggregate_id, schema_version, event_type,
+                    occurred_at_ms, delivered_at_ms
+                FROM local_command_outbox_v1 WHERE event_type <> 'coordinator_stored';
+                DROP TABLE local_command_outbox_v1;
+                DROP TABLE local_commands_v1;
+                PRAGMA user_version = 2;",
             )?;
             transaction.commit()?;
             Ok(())
@@ -712,50 +773,86 @@ mod tests {
     }
 
     #[test]
-    fn persists_command_and_returns_prior_receipt_for_identical_replay() {
+    fn migration_removes_host_emitted_coordinator_acknowledgements() {
         let database = TempDatabase::new();
-        let first = CommandJournal::open(database.path()).expect("open journal");
-        let accepted = command("command-1", 4, 1_000);
-        let initial = first
-            .store_coordinator_command(&accepted, 500)
-            .expect("store command");
-        assert_eq!(initial.state, CommandState::CoordinatorStored);
-        assert_eq!(first.pending_outbox_events(32).expect("outbox").len(), 1);
-        drop(first);
+        let old_command = command("legacy-command", 4, 1_000);
+        let digest = command_digest(&old_command);
+        let legacy = Connection::open(database.path()).expect("create v1 journal");
+        legacy
+            .execute_batch(
+                "CREATE TABLE local_commands (
+                    command_id TEXT PRIMARY KEY NOT NULL,
+                    payload_digest BLOB NOT NULL CHECK(length(payload_digest) = 32),
+                    schema_version INTEGER NOT NULL CHECK(schema_version BETWEEN 1 AND 255),
+                    tenant_id TEXT NOT NULL,
+                    task_id TEXT NOT NULL,
+                    attempt_id TEXT NOT NULL,
+                    expected_revision INTEGER NOT NULL CHECK(expected_revision >= 0),
+                    actor_id TEXT NOT NULL,
+                    device_id TEXT NOT NULL,
+                    deadline_unix_ms INTEGER NOT NULL CHECK(deadline_unix_ms >= 0),
+                    payload_json BLOB NOT NULL,
+                    state TEXT NOT NULL CHECK(state IN (
+                        'coordinator_stored', 'host_accepted', 'host_rejected', 'effect_resolved'
+                    )),
+                    rejection TEXT CHECK(rejection IN ('expired', 'stale_revision') OR rejection IS NULL),
+                    effect_digest BLOB CHECK(effect_digest IS NULL OR length(effect_digest) = 32),
+                    state_updated_at_ms INTEGER NOT NULL CHECK(state_updated_at_ms >= 0)
+                );
+                CREATE INDEX local_commands_by_task ON local_commands(task_id, state);
+                CREATE TABLE local_command_outbox (
+                    event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    command_id TEXT NOT NULL REFERENCES local_commands(command_id),
+                    aggregate_id TEXT NOT NULL,
+                    schema_version INTEGER NOT NULL CHECK(schema_version BETWEEN 1 AND 255),
+                    event_type TEXT NOT NULL,
+                    occurred_at_ms INTEGER NOT NULL CHECK(occurred_at_ms >= 0),
+                    delivered_at_ms INTEGER CHECK(delivered_at_ms IS NULL OR delivered_at_ms >= 0),
+                    UNIQUE(command_id, event_type)
+                );
+                PRAGMA user_version = 1;",
+            )
+            .expect("create v1 schema");
+        legacy
+            .execute(
+                "INSERT INTO local_commands (
+                    command_id, payload_digest, schema_version, tenant_id, task_id,
+                    attempt_id, expected_revision, actor_id, device_id, deadline_unix_ms,
+                    payload_json, state, rejection, effect_digest, state_updated_at_ms
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11,
+                    'coordinator_stored', NULL, NULL, ?12)",
+                rusqlite::params![
+                    old_command.command_id,
+                    digest.as_slice(),
+                    i64::from(old_command.schema_version),
+                    old_command.tenant_id,
+                    old_command.task_id,
+                    old_command.attempt_id,
+                    old_command.expected_revision,
+                    old_command.actor_id,
+                    old_command.device_id,
+                    old_command.deadline_unix_ms,
+                    old_command.payload_json,
+                    500_i64,
+                ],
+            )
+            .expect("insert old command");
+        legacy
+            .execute(
+                "INSERT INTO local_command_outbox (
+                    command_id, aggregate_id, schema_version, event_type, occurred_at_ms
+                 ) VALUES (?1, ?2, ?3, 'coordinator_stored', ?4)",
+                rusqlite::params![old_command.command_id, old_command.task_id, 1_i64, 500_i64],
+            )
+            .expect("insert false coordinator receipt");
+        drop(legacy);
 
-        let reopened = CommandJournal::open(database.path()).expect("reopen journal");
-        let replay = reopened
-            .store_coordinator_command(&accepted, 1_500)
-            .expect("replay stored command after deadline");
-        assert_eq!(replay, initial);
-        assert_eq!(reopened.pending_outbox_events(32).expect("outbox").len(), 1);
-    }
-
-    #[test]
-    fn rejects_reused_id_when_any_immutable_field_changes() {
-        let database = TempDatabase::new();
-        let journal = CommandJournal::open(database.path()).expect("open journal");
-        let original = command("command-1", 4, 1_000);
-        journal
-            .store_coordinator_command(&original, 500)
-            .expect("store command");
-        let mut changed = original;
-        changed.expected_revision = 5;
-        assert!(matches!(
-            journal.store_coordinator_command(&changed, 500),
-            Err(JournalError::PayloadMismatch)
-        ));
-    }
-
-    #[test]
-    fn expired_first_delivery_is_not_stored_or_acknowledged() {
-        let database = TempDatabase::new();
-        let journal = CommandJournal::open(database.path()).expect("open journal");
-        assert!(matches!(
-            journal.store_coordinator_command(&command("late", 0, 50), 50),
-            Err(JournalError::Expired)
-        ));
-        assert!(journal.query("late").expect("query").is_none());
+        let journal = CommandJournal::open(database.path()).expect("migrate v1 journal");
+        let migrated = journal
+            .query("legacy-command")
+            .expect("query migrated row")
+            .expect("migrated command");
+        assert_eq!(migrated.state, CommandState::PendingHostAdmission);
         assert!(
             journal
                 .pending_outbox_events(32)
@@ -765,12 +862,79 @@ mod tests {
     }
 
     #[test]
+    fn persists_command_and_returns_prior_receipt_for_identical_replay() {
+        let database = TempDatabase::new();
+        let first = CommandJournal::open(database.path()).expect("open journal");
+        let accepted = command("command-1", 4, 1_000);
+        let initial = first
+            .store_host_command(&accepted, 500)
+            .expect("store command");
+        assert_eq!(initial.state, CommandState::PendingHostAdmission);
+        assert!(first.pending_outbox_events(32).expect("outbox").is_empty());
+        drop(first);
+
+        let reopened = CommandJournal::open(database.path()).expect("reopen journal");
+        let replay = reopened
+            .store_host_command(&accepted, 1_500)
+            .expect("replay stored command after deadline");
+        assert_eq!(replay, initial);
+        assert!(
+            reopened
+                .pending_outbox_events(32)
+                .expect("outbox")
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn rejects_reused_id_when_any_immutable_field_changes() {
+        let database = TempDatabase::new();
+        let journal = CommandJournal::open(database.path()).expect("open journal");
+        let original = command("command-1", 4, 1_000);
+        journal
+            .store_host_command(&original, 500)
+            .expect("store command");
+        let mut changed = original;
+        changed.expected_revision = 5;
+        assert!(matches!(
+            journal.store_host_command(&changed, 500),
+            Err(JournalError::PayloadMismatch)
+        ));
+    }
+
+    #[test]
+    fn expired_command_is_stored_before_durable_host_rejection() {
+        let database = TempDatabase::new();
+        let journal = CommandJournal::open(database.path()).expect("open journal");
+        let pending = journal
+            .store_host_command(&command("late", 0, 50), 50)
+            .expect("persist received command");
+        assert_eq!(pending.state, CommandState::PendingHostAdmission);
+        assert!(
+            journal
+                .pending_outbox_events(32)
+                .expect("outbox")
+                .is_empty()
+        );
+
+        let rejected = journal
+            .record_host_admission("late", 0, 50)
+            .expect("persist expiry rejection");
+        assert_eq!(rejected.state, CommandState::HostRejected);
+        assert_eq!(rejected.rejection, Some(HostRejection::Expired));
+        assert_eq!(
+            journal.pending_outbox_events(32).expect("outbox")[0].event_type,
+            "host_rejected"
+        );
+    }
+
+    #[test]
     fn stale_or_expired_host_admission_is_a_durable_rejection() {
         let database = TempDatabase::new();
         let journal = CommandJournal::open(database.path()).expect("open journal");
         let stale = command("stale", 4, 1_000);
         journal
-            .store_coordinator_command(&stale, 500)
+            .store_host_command(&stale, 500)
             .expect("store command");
         let rejected = journal
             .record_host_admission("stale", 5, 600)
@@ -780,7 +944,7 @@ mod tests {
 
         let expired = command("expired", 4, 700);
         journal
-            .store_coordinator_command(&expired, 600)
+            .store_host_command(&expired, 600)
             .expect("store command before deadline");
         let rejected = journal
             .record_host_admission("expired", 4, 700)
@@ -794,7 +958,7 @@ mod tests {
         let database = TempDatabase::new();
         let stored_journal = CommandJournal::open(database.path()).expect("open journal");
         stored_journal
-            .store_coordinator_command(&command("command-1", 4, 1_000), 500)
+            .store_host_command(&command("command-1", 4, 1_000), 500)
             .expect("store command");
         drop(stored_journal);
 
@@ -804,7 +968,7 @@ mod tests {
             .query("command-1")
             .expect("query")
             .expect("stored receipt");
-        assert_eq!(stored.state, CommandState::CoordinatorStored);
+        assert_eq!(stored.state, CommandState::PendingHostAdmission);
         let admitted = accepted_journal
             .record_host_admission("command-1", 4, 600)
             .expect("accept at current revision");
@@ -834,7 +998,7 @@ mod tests {
                 .pending_outbox_events(32)
                 .expect("outbox")
                 .len(),
-            3
+            2
         );
     }
 
@@ -853,7 +1017,7 @@ mod tests {
             let payload = payload.clone();
             std::thread::spawn(move || {
                 barrier.wait();
-                journal.store_coordinator_command(&payload, 500)
+                journal.store_host_command(&payload, 500)
             })
         };
         let second_thread = {
@@ -861,7 +1025,7 @@ mod tests {
             let barrier = Arc::clone(&barrier);
             std::thread::spawn(move || {
                 barrier.wait();
-                journal.store_coordinator_command(&payload, 500)
+                journal.store_host_command(&payload, 500)
             })
         };
         let first_receipt = first_thread
@@ -873,13 +1037,16 @@ mod tests {
             .expect("second worker")
             .expect("second receipt");
         assert_eq!(first_receipt, second_receipt);
-        assert_eq!(first.pending_outbox_events(32).expect("outbox").len(), 1);
+        assert!(first.pending_outbox_events(32).expect("outbox").is_empty());
     }
 
     #[test]
-    fn outbox_failure_rolls_back_command_and_produces_no_receipt() {
+    fn outbox_failure_rolls_back_host_admission_and_produces_no_receipt() {
         let database = TempDatabase::new();
         let journal = CommandJournal::open(database.path()).expect("open journal");
+        journal
+            .store_host_command(&command("command-1", 4, 1_000), 500)
+            .expect("store command");
         journal
             .connection
             .lock()
@@ -891,10 +1058,17 @@ mod tests {
             )
             .expect("install failure injection trigger");
         assert!(matches!(
-            journal.store_coordinator_command(&command("command-1", 4, 1_000), 500),
+            journal.record_host_admission("command-1", 4, 600),
             Err(JournalError::Storage(_))
         ));
-        assert!(journal.query("command-1").expect("query").is_none());
+        assert_eq!(
+            journal
+                .query("command-1")
+                .expect("query")
+                .expect("receipt")
+                .state,
+            CommandState::PendingHostAdmission
+        );
     }
 
     #[test]
@@ -902,7 +1076,7 @@ mod tests {
         let database = TempDatabase::new();
         let journal = CommandJournal::open(database.path()).expect("open journal");
         journal
-            .store_coordinator_command(&command("command-1", 4, 1_000), 500)
+            .store_host_command(&command("command-1", 4, 1_000), 500)
             .expect("store command");
         journal
             .record_host_admission("command-1", 4, 600)
@@ -924,7 +1098,7 @@ mod tests {
         ));
         let receipt = journal.query("command-1").expect("query").expect("receipt");
         assert_eq!(receipt.state, CommandState::HostAccepted);
-        assert_eq!(journal.pending_outbox_events(32).expect("outbox").len(), 2);
+        assert_eq!(journal.pending_outbox_events(32).expect("outbox").len(), 1);
     }
 
     #[test]
@@ -946,8 +1120,11 @@ mod tests {
         let database = TempDatabase::new();
         let journal = CommandJournal::open(database.path()).expect("open journal");
         journal
-            .store_coordinator_command(&command("command-1", 4, 1_000), 500)
+            .store_host_command(&command("command-1", 4, 1_000), 500)
             .expect("store command");
+        journal
+            .record_host_admission("command-1", 4, 550)
+            .expect("accept command");
         let event = journal.pending_outbox_events(32).expect("outbox").remove(0);
         journal
             .mark_outbox_delivered(event.event_id, 600)

@@ -1,4 +1,11 @@
-use std::{error::Error, fmt, path::Path, sync::Mutex, time::Duration};
+use std::{
+    error::Error,
+    ffi::OsString,
+    fmt,
+    path::{Path, PathBuf},
+    sync::Mutex,
+    time::Duration,
+};
 
 use rusqlite::{
     Connection, OpenFlags, OptionalExtension, Transaction, TransactionBehavior, params,
@@ -64,7 +71,9 @@ pub struct StartReceipt {
 #[derive(Debug)]
 pub enum SessionError {
     Storage(rusqlite::Error),
+    FileSystem(std::io::Error),
     InvalidInput(&'static str),
+    SupervisorAlreadyRunning,
     SessionNotFound,
     SessionIdReused,
     ControllerIdentityMismatch,
@@ -82,7 +91,11 @@ impl fmt::Display for SessionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Storage(error) => write!(f, "supervisor session storage error: {error}"),
+            Self::FileSystem(error) => write!(f, "supervisor session path error: {error}"),
             Self::InvalidInput(message) => write!(f, "invalid supervisor session input: {message}"),
+            Self::SupervisorAlreadyRunning => {
+                f.write_str("another supervisor owns this session database")
+            }
             Self::SessionNotFound => f.write_str("supervisor session not found"),
             Self::SessionIdReused => {
                 f.write_str("session ID was already used with a different launch digest")
@@ -112,6 +125,7 @@ impl Error for SessionError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::Storage(error) => Some(error),
+            Self::FileSystem(error) => Some(error),
             _ => None,
         }
     }
@@ -123,35 +137,88 @@ impl From<rusqlite::Error> for SessionError {
     }
 }
 
+impl From<std::io::Error> for SessionError {
+    fn from(error: std::io::Error) -> Self {
+        Self::FileSystem(error)
+    }
+}
+
+/// A write transaction on a sibling SQLite file acts as a cross-process lease.
+/// Keeping this connection open prevents another supervisor from reconciling
+/// the same store until SQLite releases the lock.
+struct SupervisorLease {
+    _connection: Connection,
+}
+
+impl SupervisorLease {
+    fn acquire(database_path: &Path) -> Result<Self, SessionError> {
+        let mut lock_path = OsString::from(database_path.as_os_str());
+        lock_path.push(".supervisor-lock.sqlite3");
+        let flags = OpenFlags::SQLITE_OPEN_READ_WRITE
+            | OpenFlags::SQLITE_OPEN_CREATE
+            | OpenFlags::SQLITE_OPEN_FULL_MUTEX;
+        let connection = Connection::open_with_flags(PathBuf::from(lock_path), flags)?;
+        connection.busy_timeout(Duration::ZERO)?;
+        if let Err(error) = connection.execute_batch(
+            "BEGIN IMMEDIATE;
+             CREATE TABLE IF NOT EXISTS supervisor_lease_lock (
+                 singleton INTEGER PRIMARY KEY CHECK(singleton = 1)
+             );
+             INSERT OR IGNORE INTO supervisor_lease_lock(singleton) VALUES (1);",
+        ) {
+            if matches!(
+                error,
+                rusqlite::Error::SqliteFailure(ref code, _)
+                    if matches!(
+                        code.code,
+                        rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked
+                    )
+            ) {
+                return Err(SessionError::SupervisorAlreadyRunning);
+            }
+            return Err(SessionError::Storage(error));
+        }
+        Ok(Self {
+            _connection: connection,
+        })
+    }
+}
+
 /// The supervisor owns this database and its schema migration lifecycle.
 ///
-/// `open` creates a new supervisor epoch. Active receipts from another epoch
-/// become `outcome_unknown` in one transaction and are never relaunched. The
-/// controller identity must already have been authenticated by the caller;
-/// this storage layer is not an IPC or authorization boundary.
+/// `open` first acquires an exclusive cross-process lease, then creates a new
+/// supervisor epoch. Only after exclusive ownership is established can active
+/// receipts from a prior epoch become `outcome_unknown`; they are never
+/// relaunched. The controller identity must already have been authenticated by
+/// the caller; this storage layer is not an IPC or authorization boundary.
 pub struct SessionStore {
     connection: Mutex<Connection>,
     supervisor_epoch: String,
+    _lease: SupervisorLease,
 }
 
 impl SessionStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, SessionError> {
+        let path = path.as_ref();
         let flags = OpenFlags::SQLITE_OPEN_READ_WRITE
             | OpenFlags::SQLITE_OPEN_CREATE
             | OpenFlags::SQLITE_OPEN_FULL_MUTEX;
         let connection = Connection::open_with_flags(path, flags)?;
+        let canonical_path = std::fs::canonicalize(path)?;
+        let lease = SupervisorLease::acquire(&canonical_path)?;
         configure_connection(&connection)?;
         migrate(&connection)?;
         let supervisor_epoch: String =
             connection.query_row("SELECT lower(hex(randomblob(16)))", [], |row| row.get(0))?;
         let now_unix_ms = current_time_unix_ms()?;
-        Self::from_connection(connection, supervisor_epoch, now_unix_ms)
+        Self::from_connection(connection, supervisor_epoch, now_unix_ms, lease)
     }
 
     fn from_connection(
         mut connection: Connection,
         supervisor_epoch: String,
         now_unix_ms: i64,
+        lease: SupervisorLease,
     ) -> Result<Self, SessionError> {
         if supervisor_epoch.is_empty() || now_unix_ms < 0 {
             return Err(SessionError::InvalidInput("invalid supervisor epoch"));
@@ -162,6 +229,7 @@ impl SessionStore {
         Ok(Self {
             connection: Mutex::new(connection),
             supervisor_epoch,
+            _lease: lease,
         })
     }
 
@@ -260,17 +328,24 @@ impl SessionStore {
             .map_err(|_| SessionError::LockPoisoned)?;
         let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let existing = owned_receipt(&transaction, session_id, controller_identity)?;
-        require_state(
-            existing.state,
-            SessionState::Starting,
-            "record process start",
-        )?;
+        let (persisted_state, event_type) = match existing.state {
+            SessionState::Starting => ("running", "process_started"),
+            SessionState::CancelRequested => ("cancel_requested", "process_started_during_cancel"),
+            state => {
+                return Err(SessionError::InvalidTransition {
+                    state,
+                    requested: "record process start",
+                });
+            }
+        };
         let changed = transaction.execute(
-            "UPDATE supervisor_sessions SET state = 'running', process_id = ?2,
-                    state_updated_at_ms = ?3
-             WHERE session_id = ?1 AND supervisor_epoch = ?4 AND state = 'starting'",
+            "UPDATE supervisor_sessions SET state = ?2, process_id = ?3,
+                    state_updated_at_ms = ?4
+             WHERE session_id = ?1 AND supervisor_epoch = ?5
+               AND state IN ('starting', 'cancel_requested')",
             params![
                 session_id,
+                persisted_state,
                 i64::from(process_id),
                 now_unix_ms,
                 self.supervisor_epoch,
@@ -286,8 +361,8 @@ impl SessionStore {
             &transaction,
             session_id,
             &self.supervisor_epoch,
-            "process_started",
-            "running",
+            event_type,
+            persisted_state,
             now_unix_ms,
         )?;
         let receipt =
@@ -315,22 +390,31 @@ impl SessionStore {
             .map_err(|_| SessionError::LockPoisoned)?;
         let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let existing = owned_receipt(&transaction, session_id, controller_identity)?;
-        require_state(
+        if !matches!(
             existing.state,
-            SessionState::Starting,
-            "record start failure",
-        )?;
+            SessionState::Starting | SessionState::CancelRequested
+        ) {
+            return Err(SessionError::InvalidTransition {
+                state: existing.state,
+                requested: "record start failure",
+            });
+        }
         transaction.execute(
             "UPDATE supervisor_sessions SET state = 'failed', failure_code = ?2,
                     state_updated_at_ms = ?3
-             WHERE session_id = ?1 AND supervisor_epoch = ?4 AND state = 'starting'",
+             WHERE session_id = ?1 AND supervisor_epoch = ?4
+               AND state IN ('starting', 'cancel_requested')",
             params![session_id, failure_code, now_unix_ms, self.supervisor_epoch],
         )?;
         insert_event(
             &transaction,
             session_id,
             &self.supervisor_epoch,
-            "start_failed",
+            if existing.state == SessionState::CancelRequested {
+                "start_failed_after_cancel"
+            } else {
+                "start_failed"
+            },
             "failed",
             now_unix_ms,
         )?;
@@ -441,8 +525,9 @@ impl SessionStore {
         Ok(receipt)
     }
 
-    /// Confirm cancellation only after the process owner proves the whole
-    /// owned process tree is no longer running.
+    /// Confirm cancellation only after the process owner has persisted any
+    /// spawn that raced with Cancel and proves the whole owned process tree is
+    /// no longer running.
     // Reserved for the future process owner after proving the owned tree stopped.
     #[allow(dead_code)]
     pub(crate) fn confirm_cancel(
@@ -464,6 +549,12 @@ impl SessionStore {
             transaction.commit()?;
             return Ok(existing);
         }
+        if existing.state == SessionState::CancelRequested && existing.process_id.is_none() {
+            return Err(SessionError::InvalidTransition {
+                state: existing.state,
+                requested: "confirm cancellation before spawn outcome is recorded",
+            });
+        }
         require_state(
             existing.state,
             SessionState::CancelRequested,
@@ -481,6 +572,62 @@ impl SessionStore {
             session_id,
             &self.supervisor_epoch,
             "cancel_confirmed",
+            "cancelled",
+            now_unix_ms,
+        )?;
+        let receipt =
+            read_receipt(&transaction, session_id)?.ok_or(SessionError::SessionNotFound)?;
+        transaction.commit()?;
+        Ok(receipt)
+    }
+
+    /// Record that cancellation won before OS spawn. The process owner must
+    /// serialize this decision with its spawn handoff and prove no child was
+    /// created before calling it.
+    // Reserved for the future process owner after the spawn handoff is closed.
+    #[allow(dead_code)]
+    pub(crate) fn confirm_cancel_before_spawn(
+        &self,
+        session_id: &str,
+        controller_identity: &str,
+        now_unix_ms: i64,
+    ) -> Result<SessionReceipt, SessionError> {
+        if now_unix_ms < 0 {
+            return Err(SessionError::InvalidInput("negative current time"));
+        }
+        let mut connection = self
+            .connection
+            .lock()
+            .map_err(|_| SessionError::LockPoisoned)?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let existing = owned_receipt(&transaction, session_id, controller_identity)?;
+        if existing.state == SessionState::Cancelled && existing.process_id.is_none() {
+            transaction.commit()?;
+            return Ok(existing);
+        }
+        require_state(
+            existing.state,
+            SessionState::CancelRequested,
+            "confirm cancellation before spawn for",
+        )?;
+        if existing.process_id.is_some() {
+            return Err(SessionError::InvalidTransition {
+                state: existing.state,
+                requested: "confirm cancellation before spawn after a process receipt",
+            });
+        }
+        transaction.execute(
+            "UPDATE supervisor_sessions SET state = 'cancelled',
+                    cancel_confirmed_at_ms = ?2, state_updated_at_ms = ?2
+             WHERE session_id = ?1 AND supervisor_epoch = ?3
+               AND state = 'cancel_requested' AND process_id IS NULL",
+            params![session_id, now_unix_ms, self.supervisor_epoch],
+        )?;
+        insert_event(
+            &transaction,
+            session_id,
+            &self.supervisor_epoch,
+            "cancel_confirmed_before_spawn",
             "cancelled",
             now_unix_ms,
         )?;
@@ -519,11 +666,14 @@ impl SessionStore {
         epoch: &str,
         now_unix_ms: i64,
     ) -> Result<Self, SessionError> {
+        let path = path.as_ref();
         let flags = OpenFlags::SQLITE_OPEN_READ_WRITE
             | OpenFlags::SQLITE_OPEN_CREATE
             | OpenFlags::SQLITE_OPEN_FULL_MUTEX;
         let connection = Connection::open_with_flags(path, flags)?;
-        Self::from_connection(connection, epoch.to_owned(), now_unix_ms)
+        let canonical_path = std::fs::canonicalize(path)?;
+        let lease = SupervisorLease::acquire(&canonical_path)?;
+        Self::from_connection(connection, epoch.to_owned(), now_unix_ms, lease)
     }
 }
 
@@ -882,6 +1032,46 @@ mod tests {
     }
 
     #[test]
+    fn live_supervisor_lease_blocks_epoch_reconciliation_until_owner_exits() {
+        let database = TempDatabase::new();
+        let first = SessionStore::open_with_epoch(database.path(), "epoch-1", 100)
+            .expect("open session store");
+        first
+            .start(
+                "session-1",
+                br#"{"program":"tool"}"#,
+                "host-controller",
+                200,
+            )
+            .expect("persist start");
+
+        assert!(matches!(
+            SessionStore::open_with_epoch(database.path(), "epoch-2", 300),
+            Err(SessionError::SupervisorAlreadyRunning)
+        ));
+        assert_eq!(
+            first
+                .query("session-1", "host-controller")
+                .expect("query live owner's session")
+                .expect("receipt")
+                .state,
+            SessionState::Starting
+        );
+        drop(first);
+
+        let restarted = SessionStore::open_with_epoch(database.path(), "epoch-2", 400)
+            .expect("acquire lease after prior owner exits");
+        assert_eq!(
+            restarted
+                .query("session-1", "host-controller")
+                .expect("query reconciled session")
+                .expect("receipt")
+                .state,
+            SessionState::OutcomeUnknown
+        );
+    }
+
+    #[test]
     fn cancellation_receipts_survive_reopen_and_remain_distinct() {
         let database = TempDatabase::new();
         let store = SessionStore::open_with_epoch(database.path(), "epoch-1", 100)
@@ -964,6 +1154,74 @@ mod tests {
         assert_eq!(exited.cancel_confirmed_at_ms, None);
         assert!(matches!(
             store.confirm_cancel("session-1", "host-controller", 400),
+            Err(SessionError::InvalidTransition { .. })
+        ));
+    }
+
+    #[test]
+    fn spawn_receipt_racing_with_cancel_stays_tracked_until_tree_is_stopped() {
+        let database = TempDatabase::new();
+        let store = SessionStore::open_with_epoch(database.path(), "epoch-1", 100)
+            .expect("open session store");
+        store
+            .start(
+                "session-1",
+                br#"{"program":"tool"}"#,
+                "host-controller",
+                200,
+            )
+            .expect("persist start");
+        let requested = store
+            .request_cancel("session-1", "host-controller", 250)
+            .expect("request cancel before spawn receipt");
+        assert_eq!(requested.state, SessionState::CancelRequested);
+        assert!(matches!(
+            store.confirm_cancel("session-1", "host-controller", 260),
+            Err(SessionError::InvalidTransition { .. })
+        ));
+
+        let spawned = store
+            .record_running("session-1", "host-controller", 42, 270)
+            .expect("persist process spawned during cancellation");
+        assert_eq!(spawned.state, SessionState::CancelRequested);
+        assert_eq!(spawned.process_id, Some(42));
+        assert_eq!(spawned.cancel_requested_at_ms, Some(250));
+        assert_eq!(spawned.cancel_confirmed_at_ms, None);
+
+        // The process owner has now stopped and waited for the recorded tree.
+        let terminal = store
+            .confirm_cancel("session-1", "host-controller", 300)
+            .expect("confirm only after the owned tree stops");
+        assert_eq!(terminal.state, SessionState::Cancelled);
+        assert_eq!(terminal.process_id, Some(42));
+        assert_eq!(terminal.cancel_requested_at_ms, Some(250));
+        assert_eq!(terminal.cancel_confirmed_at_ms, Some(300));
+    }
+
+    #[test]
+    fn cancel_before_spawn_can_be_confirmed_only_after_handoff_is_closed() {
+        let database = TempDatabase::new();
+        let store = SessionStore::open_with_epoch(database.path(), "epoch-1", 100)
+            .expect("open session store");
+        store
+            .start(
+                "session-1",
+                br#"{"program":"tool"}"#,
+                "host-controller",
+                200,
+            )
+            .expect("persist start");
+        store
+            .request_cancel("session-1", "host-controller", 250)
+            .expect("request cancel");
+        let terminal = store
+            .confirm_cancel_before_spawn("session-1", "host-controller", 300)
+            .expect("record closed spawn handoff with no process");
+        assert_eq!(terminal.state, SessionState::Cancelled);
+        assert_eq!(terminal.process_id, None);
+        assert_eq!(terminal.cancel_confirmed_at_ms, Some(300));
+        assert!(matches!(
+            store.record_running("session-1", "host-controller", 42, 350),
             Err(SessionError::InvalidTransition { .. })
         ));
     }
