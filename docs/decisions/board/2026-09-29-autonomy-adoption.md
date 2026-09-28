@@ -2,7 +2,7 @@
 
 ## Decision
 
-Status: unanimously approved by the Critical expert board; local verification passed; activation awaits an atomic commit of the exact reviewed normative bytes.
+Status: ACTIVE. The Critical expert board unanimously approved the exact normative policy bytes; implementation commit `971265461313968ecdf009e3d82bdc95b646007e` records activation.
 
 - Option: ADOPT-R3 — adopt the expert-board procedure and integrated Conductor workflow.
 - Tier: Critical. The policy governs decision paths affecting privacy, security, authority, platform support, and release controls.
@@ -89,6 +89,6 @@ No hidden chain-of-thought is recorded. The concise final votes and closure stat
 
 ## Adoption gate and limits
 
-This board approves the policy design. It does not activate it by itself. CI=true pnpm verify passed on the final working tree: spec structure, TypeScript checks, package tests/builds, Rust formatting, Clippy, and Rust tests all succeeded. A bare pnpm verify first stopped before checks because pnpm needed a noninteractive confirmation to recreate the ignored node_modules directory; CI mode safely completed that reset from the committed lockfile. The complete diff has been reviewed. The exact reviewed normative bytes must now be committed atomically; the commit SHA will be recorded here as the activation event. The status update from proposed to approved is outcome metadata only and does not alter the reviewed policy rules. If commit would change a normative byte, the proposal remains inactive and returns to the board.
+This board approves the policy design. CI=true pnpm verify passed on the exact policy working tree: spec structure, TypeScript checks, package tests/builds, Rust formatting, Clippy, and Rust tests all succeeded. A bare pnpm verify first stopped before checks because pnpm needed a noninteractive confirmation to recreate the ignored node_modules directory; CI mode safely completed that reset from the committed lockfile. The complete diff was reviewed, and the exact reviewed normative bytes were atomically committed as `971265461313968ecdf009e3d82bdc95b646007e`; that SHA is the activation event. This record's status and activation-SHA updates are outcome metadata and do not alter the reviewed policy rules. The initial commit's cross-platform required checks remain the synchronization gate for protected main.
 
 This is governance-document review only. It is not runtime verification, human security qualification, legal advice, native-platform qualification, release authorization, or proof that agents are independent. The board cannot authorize external spending, production access, publication, deployment, messaging, or irreversible external changes.
