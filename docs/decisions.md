@@ -19,4 +19,5 @@ These accepted design decisions constrain implementation; they are not completed
 | ADR13 | Hosted TLS/KMS trust model, local-only and later self-hosted options | No E2EE marketing until a separate end-to-end design is qualified |
 | ADR14 | No publication license selected in scaffold | Public source repository only after owner-authorized unanimous spec approval; packages remain nonpublishable, no open-source license inferred, licensing/name/provenance before product distribution |
 | ADR15 | S0 implements only truthful health and nonexecuting shells | This keeps scaffold review distinct from unbuilt security/runtime claims |
-| ADR16 | Mandatory GitHub issue/PR development with independent expert reviews and protected main | Extra review latency; no unilateral bypass or fabricated distinct GitHub identities |
+| ADR16 | Initial GitHub issue/PR workflow with fixed expert reviews (superseded 2026-09-29 by ADR17) | Historical bootstrap policy; retained here to explain the initial review and protection setup |
+| ADR17 | Autonomous, local-first AI-agent development with exact-commit CI-gated main synchronization | Agents verify and review locally, commit atomically, then synchronize without routine user approval; CI, no-force/no-delete rules and product security/release gates remain enforced |

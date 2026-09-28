@@ -1,24 +1,27 @@
-## Problem and behavior
+## Why use a PR for this change?
 
-Closes #
-SPEC requirements:
+Choose the value it adds: protected-main integration, substantial/risky change, concurrent work, public contribution, or meaningful remote review.
 
-## Implementation and platform impact
+## Change and impact
 
-## Validation and limits
+Describe the behavior or documentation change, relevant SPEC requirements, affected platforms, and any migration/recovery impact.
 
-Commands/results, native platforms actually tested, migrations and recovery:
+## Risk review
 
-## Independent expert review records
+- Risk level and trust boundaries touched:
+- Focused human/specialist review needed (if any):
+- AI review or other supporting analysis (optional):
 
-Link systems, security and platforms records below. Each must state the exact current head SHA and APPROVE with no unresolved blockers. Shared-account agents are not separate native GitHub approving principals.
+AI review is supplemental and is not human approval or security qualification. Never claim separate reviewer identities for agents sharing one account.
 
-- Systems/runtime:
-- Security/trust:
-- Client/platforms:
-- Reviewed head SHA:
-- Normative bundle changed: yes/no; refreshed three-role spec hash:
+## Verification and limits
 
-## Merge gate
+- [ ] pnpm verify passed, or the exact limitation is documented.
+- [ ] Relevant platform-specific checks/evidence are recorded.
+- [ ] Diff reviewed for accidental files, secrets and generated/debug artifacts.
 
-Required CI green on the current merge state; all three expert verdicts current; eligible non-author GitHub approval; all conversations resolved. No bypass.
+Commands/results and any untested platforms or release gates:
+
+## Integration
+
+For changes targeting protected main, satisfy the live ruleset's required checks and history rules. PRs and human approvals are optional unless the live policy or a genuine product security/release gate requires them. Never bypass protections or fabricate review evidence. Record the final commit/head SHA when describing verification evidence.
