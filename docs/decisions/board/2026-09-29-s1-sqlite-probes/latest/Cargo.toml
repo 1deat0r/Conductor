@@ -1,0 +1,11 @@
+[package]
+name = "conductor-sqlite-msrv-probe-latest"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+
+[workspace]
+resolver = "3"
+
+[dependencies]
+rusqlite = { version = "=0.40.2", features = ["bundled"] }
