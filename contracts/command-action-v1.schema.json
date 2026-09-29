@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.conductor.invalid/command-action-v1.schema.json",
+  "title": "CommandActionV1",
+  "$ref": "#/$defs/CommandActionV1",
+  "$defs": {
+    "TaskCreate": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "task.create" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "goal": { "type": "string", "minLength": 1, "maxLength": 20000 }
+      },
+      "required": ["kind", "title", "goal"],
+      "additionalProperties": false
+    },
+    "TaskUpdate": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "task.update" },
+        "changes": {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+            "goal": { "type": "string", "minLength": 1, "maxLength": 20000 }
+          },
+          "minProperties": 1,
+          "additionalProperties": false
+        }
+      },
+      "required": ["kind", "changes"],
+      "additionalProperties": false
+    },
+    "AttemptStart": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "attempt.start" },
+        "launch_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      },
+      "required": ["kind", "launch_digest"],
+      "additionalProperties": false
+    },
+    "AttemptCancel": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "attempt.cancel" },
+        "reason": { "type": "string", "maxLength": 512 }
+      },
+      "required": ["kind"],
+      "additionalProperties": false
+    },
+    "CommandActionV1": {
+      "oneOf": [
+        { "$ref": "#/$defs/TaskCreate" },
+        { "$ref": "#/$defs/TaskUpdate" },
+        { "$ref": "#/$defs/AttemptStart" },
+        { "$ref": "#/$defs/AttemptCancel" }
+      ]
+    }
+  }
+}

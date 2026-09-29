@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "command_id": "cmd-cancel-04",
+  "payload_digest": "9f94760f01b3784a987dd1af7111af2c443ea64177652d87a816ffeb106a3c93",
+  "submission_fingerprint": "1a6b8948ce1b94575ee5e790cd2bfcdded34a07c957a1c798d01db225b49a868",
+  "tenant_id": "tenant-7",
+  "actor_id": "actor-3",
+  "device_id": "device-2",
+  "deadline_unix_ms": 2000,
+  "target": {
+    "task_id": "task-7",
+    "attempt_id": "attempt-9"
+  },
+  "revision_target": {
+    "aggregate_kind": "attempt",
+    "aggregate_id": "attempt-9",
+    "expected_revision": 3
+  },
+  "action": {
+    "kind": "attempt.cancel"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "command_id": "cmd-start-claimed-06",
+  "deadline_unix_ms": 2000,
+  "target": {
+    "task_id": "task-7",
+    "attempt_id": "attempt-claimed"
+  },
+  "revision_target": {
+    "aggregate_kind": "task",
+    "aggregate_id": "task-7",
+    "expected_revision": 4
+  },
+  "action": {
+    "kind": "attempt.start",
+    "launch_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}

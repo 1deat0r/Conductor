@@ -1,0 +1,1 @@
+{"schema_version":1,"authority":{"kind":"host","host_id":"host-4"},"command_id":"cmd-start-02","payload_digest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","receipt_state":"host_rejected","updated_at_unix_ms":1700000000001,"rejection":{"code":"expired"}}

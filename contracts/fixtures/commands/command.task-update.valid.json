@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "command_id": "cmd-update-03",
+  "payload_digest": "d5399dbd222403d2237851bf9aad9c0c1713e26913a9da4963d723709341d87c",
+  "submission_fingerprint": "0b2c96584b99fff3c0a7ff88e2ca734b704d40c55d97c28a5a46e9e717c0be20",
+  "tenant_id": "tenant-7",
+  "actor_id": "actor-3",
+  "device_id": "device-2",
+  "deadline_unix_ms": 2000,
+  "target": {
+    "task_id": "task-7"
+  },
+  "revision_target": {
+    "aggregate_kind": "task",
+    "aggregate_id": "task-7",
+    "expected_revision": 5
+  },
+  "action": {
+    "kind": "task.update",
+    "changes": {
+      "goal": "Revise recovery requirements"
+    }
+  }
+}

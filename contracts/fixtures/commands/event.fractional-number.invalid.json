@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "event_id": "event-5",
+  "event_type": "attempt.state_changed",
+  "event_class": "required",
+  "aggregate": {
+    "kind": "attempt",
+    "id": "attempt-9",
+    "sequence": 3
+  },
+  "command_id": "cmd-start-02",
+  "causation_id": null,
+  "actor_id": "actor-3",
+  "ownership_generation": 1.5,
+  "occurred_at_unix_ms": 1700000000004,
+  "payload": {
+    "from": "queued",
+    "to": "running"
+  }
+}

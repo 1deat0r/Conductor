@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.conductor.invalid/coordinator-receipt-v1.schema.json",
+  "title": "CoordinatorReceiptV1",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "authority": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "coordinator"
+        },
+        "tenant_id": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "required": [
+        "kind",
+        "tenant_id"
+      ],
+      "additionalProperties": false
+    },
+    "command_id": {
+      "$ref": "#/$defs/id"
+    },
+    "payload_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "submission_fingerprint": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "receipt_state": {
+      "const": "coordinator_stored"
+    },
+    "stored_at_unix_ms": {
+      "$ref": "#/$defs/safeInteger"
+    },
+    "assigned_target": {
+      "$ref": "#/$defs/target"
+    }
+  },
+  "required": [
+    "schema_version",
+    "authority",
+    "command_id",
+    "payload_digest",
+    "submission_fingerprint",
+    "receipt_state",
+    "stored_at_unix_ms",
+    "assigned_target"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "safeInteger": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "target": {
+      "type": "object",
+      "properties": {
+        "task_id": {
+          "$ref": "#/$defs/id"
+        },
+        "attempt_id": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "required": [
+        "task_id"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

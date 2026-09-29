@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "command_id": "cmd-start-float-07",
+  "payload_digest": "be5aa46b5bfce97d1991b3cb9a115000953698b3505be97484a079109e4c3c17",
+  "submission_fingerprint": "b87b1535713030f158d4cacc2244cda491d53537393a6600427c31156fe56726",
+  "tenant_id": "tenant-7",
+  "actor_id": "actor-3",
+  "device_id": "device-2",
+  "deadline_unix_ms": 2000.0,
+  "target": {
+    "task_id": "task-7",
+    "attempt_id": "attempt-9"
+  },
+  "revision_target": {
+    "aggregate_kind": "task",
+    "aggregate_id": "task-7",
+    "expected_revision": 4
+  },
+  "action": {
+    "kind": "attempt.start",
+    "launch_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}

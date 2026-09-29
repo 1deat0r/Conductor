@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "authority": {
+    "kind": "host",
+    "host_id": "host-4"
+  },
+  "command_id": "cmd-start-02",
+  "payload_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "receipt_state": "effect_resolved",
+  "updated_at_unix_ms": 1700000000006,
+  "resolution": {
+    "resolution_id": "resolution-10",
+    "outcome": "failed",
+    "no_result": true
+  }
+}

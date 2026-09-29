@@ -1,0 +1,32 @@
+[
+  {
+    "name": "nested-key-reordering",
+    "input_json": "{\"z\":3,\"nested\":{\"b\":2,\"a\":1},\"a\":0}",
+    "canonical_json": "{\"a\":0,\"nested\":{\"a\":1,\"b\":2},\"z\":3}"
+  },
+  {
+    "name": "utf16-property-order-and-un-normalized-strings",
+    "input_json": "{\"\\uE000\":\"bmp\",\"😀\":\"astral\",\"é\":\"decomposed\",\"é\":\"composed\"}",
+    "canonical_json": "{\"é\":\"decomposed\",\"é\":\"composed\",\"😀\":\"astral\",\"\":\"bmp\"}"
+  },
+  {
+    "name": "string-escaping",
+    "input_json": "{\"value\":\"quote\\\" slash/ line\\n tab\\t backslash\\\\\"}",
+    "canonical_json": "{\"value\":\"quote\\\" slash/ line\\n tab\\t backslash\\\\\"}"
+  },
+  {
+    "name": "safe-integer-boundary-and-decimal-string",
+    "input_json": "{\"max\":9007199254740991,\"larger_as_string\":\"9007199254740992\"}",
+    "canonical_json": "{\"larger_as_string\":\"9007199254740992\",\"max\":9007199254740991}"
+  },
+  {
+    "name": "integer-valued-decimal-token",
+    "input_json": "{\"value\":1.0}",
+    "canonical_json": "{\"value\":1}"
+  },
+  {
+    "name": "positive-zero-controls",
+    "input_json": "{\"zero\":0,\"decimal\":0.0,\"exponent\":0e-2}",
+    "canonical_json": "{\"decimal\":0,\"exponent\":0,\"zero\":0}"
+  }
+]

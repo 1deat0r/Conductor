@@ -10,3 +10,6 @@ publish = false
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["unbounded_depth"] }
 rusqlite = { version = "=0.40.2", features = ["bundled"] }
+sha2 = "=0.10.9"
+jsonschema = { version = "=0.58.1", default-features = false }
+serde_json_canonicalizer = "=0.3.2"

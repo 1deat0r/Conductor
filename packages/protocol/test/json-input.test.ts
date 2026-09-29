@@ -45,3 +45,7 @@ test('enforces the caller-provided input byte and nesting limits', () => {
     (error: unknown) => error instanceof JsonInputError && error.kind === 'input_too_large'
   );
 });
+
+test('preserves JavaScript number semantics for integer-valued decimal tokens', () => {
+  assert.deepEqual(parseJsonInput('{"integer":1.0,"zero":0.0}', limits), { integer: 1, zero: 0 });
+});

@@ -1,0 +1,264 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.conductor.invalid/host-receipt-v1.schema.json",
+  "title": "HostReceiptV1",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "authority": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "host"
+        },
+        "host_id": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "required": [
+        "kind",
+        "host_id"
+      ],
+      "additionalProperties": false
+    },
+    "command_id": {
+      "$ref": "#/$defs/id"
+    },
+    "payload_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "receipt_state": {
+      "enum": [
+        "pending_host_admission",
+        "host_accepted",
+        "host_rejected",
+        "effect_resolved",
+        "outcome_unknown"
+      ]
+    },
+    "updated_at_unix_ms": {
+      "$ref": "#/$defs/safeInteger"
+    },
+    "rejection": {
+      "$ref": "#/$defs/rejection"
+    },
+    "resolution": {
+      "$ref": "#/$defs/resolution"
+    },
+    "unknown_reason": {
+      "const": "ambiguous_history"
+    },
+    "reconciliation_required": {
+      "const": true
+    }
+  },
+  "required": [
+    "schema_version",
+    "authority",
+    "command_id",
+    "payload_digest",
+    "receipt_state",
+    "updated_at_unix_ms"
+  ],
+  "oneOf": [
+    {
+      "properties": {
+        "receipt_state": {
+          "enum": [
+            "pending_host_admission",
+            "host_accepted"
+          ]
+        }
+      },
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "rejection"
+            ]
+          },
+          {
+            "required": [
+              "resolution"
+            ]
+          },
+          {
+            "required": [
+              "unknown_reason"
+            ]
+          },
+          {
+            "required": [
+              "reconciliation_required"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "properties": {
+        "receipt_state": {
+          "const": "host_rejected"
+        }
+      },
+      "required": [
+        "rejection"
+      ],
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "resolution"
+            ]
+          },
+          {
+            "required": [
+              "unknown_reason"
+            ]
+          },
+          {
+            "required": [
+              "reconciliation_required"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "properties": {
+        "receipt_state": {
+          "const": "effect_resolved"
+        }
+      },
+      "required": [
+        "resolution"
+      ],
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "rejection"
+            ]
+          },
+          {
+            "required": [
+              "unknown_reason"
+            ]
+          },
+          {
+            "required": [
+              "reconciliation_required"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "properties": {
+        "receipt_state": {
+          "const": "outcome_unknown"
+        }
+      },
+      "required": [
+        "unknown_reason",
+        "reconciliation_required"
+      ],
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "rejection"
+            ]
+          },
+          {
+            "required": [
+              "resolution"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "safeInteger": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "rejection": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "enum": [
+            "stale_revision",
+            "expired",
+            "permission_changed"
+          ]
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "additionalProperties": false
+    },
+    "resolution": {
+      "type": "object",
+      "properties": {
+        "resolution_id": {
+          "$ref": "#/$defs/id"
+        },
+        "outcome": {
+          "enum": [
+            "succeeded",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "result_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "no_result": {
+          "const": true
+        }
+      },
+      "required": [
+        "resolution_id",
+        "outcome"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "result_digest"
+          ],
+          "not": {
+            "required": [
+              "no_result"
+            ]
+          }
+        },
+        {
+          "required": [
+            "no_result"
+          ],
+          "not": {
+            "required": [
+              "result_digest"
+            ]
+          }
+        }
+      ],
+      "additionalProperties": false
+    }
+  }
+}

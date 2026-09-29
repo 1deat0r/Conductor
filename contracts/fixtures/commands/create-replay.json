@@ -1,0 +1,61 @@
+{
+  "principal": {
+    "tenant_id": "tenant-7",
+    "actor_id": "actor-3",
+    "device_id": "device-2"
+  },
+  "submission": {
+    "schema_version": 1,
+    "command_id": "cmd-create-01",
+    "deadline_unix_ms": 2000,
+    "action": {
+      "kind": "task.create",
+      "title": "S1 proof",
+      "goal": "Prove local command recovery"
+    }
+  },
+  "same_retry": {
+    "schema_version": 1,
+    "command_id": "cmd-create-01",
+    "deadline_unix_ms": 2000,
+    "action": {
+      "kind": "task.create",
+      "title": "S1 proof",
+      "goal": "Prove local command recovery"
+    }
+  },
+  "changed_retry": {
+    "schema_version": 1,
+    "command_id": "cmd-create-01",
+    "deadline_unix_ms": 2000,
+    "action": {
+      "kind": "task.create",
+      "title": "S1 proof",
+      "goal": "Changed goal"
+    }
+  },
+  "original_receipt": {
+    "schema_version": 1,
+    "authority": {
+      "kind": "coordinator",
+      "tenant_id": "tenant-7"
+    },
+    "command_id": "cmd-create-01",
+    "payload_digest": "8339d0396aaa5642604a8cbc100113e3fd046e2f6a481c872d26fab2ed4882d6",
+    "submission_fingerprint": "8ded3f0fc333370fb0b964cf3119562c2893b87919623fa9115a5a94133f0267",
+    "receipt_state": "coordinator_stored",
+    "stored_at_unix_ms": 1700000000000,
+    "assigned_target": {
+      "task_id": "task-created-42"
+    }
+  },
+  "expected_assigned_task_id": "task-created-42",
+  "expected_submission_fingerprint": "8ded3f0fc333370fb0b964cf3119562c2893b87919623fa9115a5a94133f0267",
+  "changed_principal": {
+    "tenant_id": "tenant-7",
+    "actor_id": "actor-3",
+    "device_id": "device-other"
+  },
+  "expected_changed_content_fingerprint": "3c0d923972e570a3a6bfef959fea34f00da57e0a6b6d9bdfb788e4ba76a4d20f",
+  "expected_changed_principal_fingerprint": "9454bd1fc57ade3fd1c60a2851e96eab4c72dbf6605e9a9db5a7b901fd0d5e26"
+}

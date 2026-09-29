@@ -1,0 +1,1 @@
+{"schema_version":1,"event_id":"event-10","event_type":"vendor.future_event","event_class":"informational","aggregate":{"kind":"attempt","id":"attempt-9","sequence":8},"command_id":"cmd-start-02","causation_id":null,"actor_id":"actor-3","ownership_generation":1,"occurred_at_unix_ms":1700000000009,"snapshot_cursor":"cursor-22","payload":{"unsafe":-9223372036854775808}}

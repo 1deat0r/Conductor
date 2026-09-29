@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "command_id": "cmd-cancel-04",
+  "deadline_unix_ms": 2000,
+  "target": {
+    "task_id": "task-7",
+    "attempt_id": "attempt-9"
+  },
+  "revision_target": {
+    "aggregate_kind": "attempt",
+    "aggregate_id": "attempt-9",
+    "expected_revision": 3
+  },
+  "action": {
+    "kind": "attempt.cancel"
+  }
+}

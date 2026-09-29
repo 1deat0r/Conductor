@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "event_id": "event-task-2",
+  "event_type": "task.updated",
+  "event_class": "required",
+  "aggregate": {
+    "kind": "task",
+    "id": "task-7",
+    "sequence": 2
+  },
+  "command_id": "cmd-create-01",
+  "causation_id": null,
+  "actor_id": "actor-3",
+  "ownership_generation": 0,
+  "occurred_at_unix_ms": 1700000000012,
+  "payload": {
+    "task_revision": 2
+  }
+}

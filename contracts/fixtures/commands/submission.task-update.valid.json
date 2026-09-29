@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "command_id": "cmd-update-03",
+  "deadline_unix_ms": 2000,
+  "target": {
+    "task_id": "task-7"
+  },
+  "revision_target": {
+    "aggregate_kind": "task",
+    "aggregate_id": "task-7",
+    "expected_revision": 5
+  },
+  "action": {
+    "kind": "task.update",
+    "changes": {
+      "goal": "Revise recovery requirements"
+    }
+  }
+}

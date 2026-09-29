@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "event_id": "event-11",
+  "event_type": "constructor",
+  "event_class": "informational",
+  "aggregate": {
+    "kind": "attempt",
+    "id": "attempt-9",
+    "sequence": 9
+  },
+  "command_id": "cmd-start-02",
+  "causation_id": null,
+  "actor_id": "actor-3",
+  "ownership_generation": 1,
+  "occurred_at_unix_ms": 1700000000010,
+  "snapshot_cursor": "cursor-23",
+  "payload": {}
+}

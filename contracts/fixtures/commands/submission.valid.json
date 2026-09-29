@@ -1,0 +1,1 @@
+{"schema_version":1,"command_id":"cmd-create-01","deadline_unix_ms":2000,"action":{"kind":"task.create","title":"S1 proof","goal":"Prove local command recovery"}}

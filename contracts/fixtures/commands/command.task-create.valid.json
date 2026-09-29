@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "command_id": "cmd-create-01",
+  "payload_digest": "8339d0396aaa5642604a8cbc100113e3fd046e2f6a481c872d26fab2ed4882d6",
+  "submission_fingerprint": "8ded3f0fc333370fb0b964cf3119562c2893b87919623fa9115a5a94133f0267",
+  "tenant_id": "tenant-7",
+  "actor_id": "actor-3",
+  "device_id": "device-2",
+  "deadline_unix_ms": 2000,
+  "target": {
+    "task_id": "task-created-42"
+  },
+  "action": {
+    "kind": "task.create",
+    "title": "S1 proof",
+    "goal": "Prove local command recovery"
+  }
+}
