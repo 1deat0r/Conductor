@@ -1,11 +1,9 @@
 [package]
-name = "conductor-host"
+name = "conductor-sqlite"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
+
 [dependencies]
-serde_json.workspace = true
 rusqlite.workspace = true
-conductor-sqlite = { path = "../sqlite" }
-conductor-protocol = { path = "../protocol" }

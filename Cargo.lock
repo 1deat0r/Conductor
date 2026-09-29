@@ -106,7 +106,8 @@ name = "conductor-host"
 version = "0.1.0"
 dependencies = [
  "conductor-protocol",
- "serde",
+ "conductor-sqlite",
+ "rusqlite",
  "serde_json",
 ]
 
@@ -122,13 +123,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "conductor-sqlite"
+version = "0.1.0"
+dependencies = [
+ "rusqlite",
+]
+
+[[package]]
 name = "conductor-supervisor"
 version = "0.1.0"
 dependencies = [
  "conductor-protocol",
+ "conductor-sqlite",
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]
