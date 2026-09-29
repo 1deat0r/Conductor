@@ -52,4 +52,4 @@ All mandatory seats confirmed the local public-material routing and proposal has
 
 ## Adoption event
 
-The approved normative bytes are the proposal file above. After its exact bytes and this outcome are verified and committed, the proposal commit SHA is the adoption event. This field will be filled in a separate metadata-only commit; implementation will not begin before that SHA is recorded here.
+The approved normative bytes are the proposal file above. Adoption was recorded with commit `e783510a7bf91a744f68910c78a9aabda93670b4`, which commits this outcome and the exact proposal bytes after verifying the reviewed bundle hashes. Implementation may proceed only within this sealed scope; the commit does not complete Issue #1, R07/R24, native lifecycle qualification, or execution gates.
